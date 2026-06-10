@@ -12,7 +12,9 @@ final class DiagController extends BaseController
 {
     public function madeline(): void
     {
-        MadelineEnvironment::prepare();
+        MadelineEnvironment::applyBeforeApiConstruct(
+            Bootstrap::config('app')['paths']['sessions'] . '/default.madeline'
+        );
 
         $sessionsPath = Bootstrap::config('app')['paths']['sessions'];
         $sessions = [];

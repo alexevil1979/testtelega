@@ -37,15 +37,33 @@ final class MadelineEnvironment
             self::prependPath($projectBin);
         }
 
-        if (self::shouldForceFullInit($sessionPath)) {
-            Magic::$altervista = true;
-        }
-
         if (PHP_SAPI !== 'cli') {
             @ini_set('max_execution_time', '300');
         }
 
         self::$prepared = true;
+    }
+
+    /**
+     * Вызвать непосредственно перед new API().
+     * Magic::start() в конструкторе API сбрасывает $altervista — используем флаг MadelineProto.
+     */
+    public static function applyBeforeApiConstruct(?string $sessionPath = null): void
+    {
+        self::prepare($sessionPath);
+
+        if (!self::shouldForceFullInit($sessionPath)) {
+            return;
+        }
+
+        // connectToMadelineProto: forceFull ||= isset($_GET['MadelineSelfRestart'])
+        $_GET['MadelineSelfRestart'] = '1';
+        Magic::$altervista = true;
+    }
+
+    public static function isForceFullActive(): bool
+    {
+        return isset($_GET['MadelineSelfRestart']) || Magic::$altervista;
     }
 
     public static function getPhpBin(): string
@@ -81,7 +99,8 @@ final class MadelineEnvironment
             'path' => getenv('PATH') ?: '',
             'proc_open' => function_exists('proc_open') && !in_array('proc_open', $disabled, true),
             'open_basedir' => ini_get('open_basedir') ?: null,
-            'force_full' => Magic::$altervista,
+            'force_full' => self::isForceFullActive(),
+            'madeline_force_full_env' => Bootstrap::config('app')['madeline_force_full'] ?? true,
             'cwd' => getcwd(),
         ];
     }

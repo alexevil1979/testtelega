@@ -9,6 +9,11 @@ SESSION="${1:-default}"
 
 echo "=== Сброс сессии: $SESSION ==="
 
+# Остановить фоновые IPC-воркеры MadelineProto (могут держать lock сессии)
+pkill -f "madeline-ipc.*${SESSION}.madeline" 2>/dev/null || true
+pkill -f "MadelineProto worker.*${SESSION}.madeline" 2>/dev/null || true
+sleep 1
+
 # MadelineProto 8 — директория .madeline
 rm -rf "$PROJECT/sessions/${SESSION}.madeline"
 rm -f "$PROJECT/sessions/${SESSION}.madeline"*

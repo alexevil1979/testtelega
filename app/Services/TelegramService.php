@@ -30,12 +30,15 @@ final class TelegramService
             return self::$api;
         }
 
-        MadelineEnvironment::prepare($sessionPath);
+        MadelineEnvironment::applyBeforeApiConstruct($sessionPath);
 
         $settings = new Settings();
         $settings->getAppInfo()
             ->setApiId(Bootstrap::config('app')['telegram']['api_id'])
             ->setApiHash(Bootstrap::config('app')['telegram']['api_hash']);
+
+        $settings->getConnection()->setTimeout(60.0);
+        $settings->getRpc()->setRpcDropTimeout(120);
 
         // SOCKS5/HTTP прокси для MTProto (всегда из .env или настроек UI)
         ProxyConfig::applyToSettings($settings);
