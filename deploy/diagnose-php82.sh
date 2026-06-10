@@ -68,6 +68,25 @@ else
 fi
 
 echo
+echo "=== MadelineProto IPC (proc_open, open_basedir) ==="
+DISABLED=$("$PHP_BIN" -r "echo ini_get('disable_functions');")
+OB=$("$PHP_BIN" -r "echo ini_get('open_basedir') ?: '(не задан)';")
+for fn in proc_open popen; do
+    if echo "$DISABLED" | grep -q "$fn"; then
+        echo "[FAIL] $fn в disable_functions"
+    elif ! "$PHP_BIN" -r "exit(function_exists('$fn') ? 0 : 1);" 2>/dev/null; then
+        echo "[FAIL] $fn недоступен"
+    else
+        echo "[OK] $fn"
+    fi
+done
+echo "[INFO] open_basedir (CLI): $OB"
+if [ -f /usr/local/php82/etc/php-fpm.d/www.conf ]; then
+    grep -E 'env\[PATH\]|open_basedir|disable_functions' /usr/local/php82/etc/php-fpm.d/www.conf 2>/dev/null | grep -v ';' || true
+fi
+echo ">>> При ошибке IPC: sudo bash deploy/fix-madelineproto-ipc.sh"
+
+echo
 echo "=== Рекомендуемый SetHandler ==="
 # Активный пул — www.conf (не .default)
 LISTEN=""

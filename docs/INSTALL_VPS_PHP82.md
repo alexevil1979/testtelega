@@ -329,6 +329,56 @@ $PHP_BIN $(command -v composer) install --no-dev --optimize-autoloader
 
 ---
 
+## 11. MadelineProto IPC (авторизация Telegram)
+
+При отправке номера телефона ошибка:
+
+```
+Could not connect to MadelineProto, please enable proc_open...
+```
+
+**Причина:** MadelineProto запускает фоновый IPC worker через `proc_open`. Без него (или с другим PHP в PATH) сессия не стартует за 30 секунд.
+
+**Исправление одной командой:**
+
+```bash
+cd $PROJECT
+git pull origin main
+sudo bash deploy/fix-madelineproto-ipc.sh
+```
+
+Скрипт:
+- убирает `proc_open`, `popen` из `disable_functions` в `php.ini`;
+- задаёт `open_basedir` с путями проекта, `/tmp`, `/usr/local/php82`;
+- прописывает `env[PATH]=/usr/local/php82/bin:...` в PHP-FPM pool;
+- перезапускает FPM.
+
+В `.env` добавьте (если ещё нет):
+
+```env
+PHP_BIN=/usr/local/php82/bin/php
+```
+
+Если сессия «зависла» после неудачных попыток:
+
+```bash
+bash deploy/reset-session.sh default
+```
+
+Проверка лога:
+
+```bash
+tail -50 $PROJECT/logs/MadelineProto.log
+```
+
+Ошибки Apache `php8.2-fpm.sock` — vhost смотрит на apt-php, а не на кастомный FPM:
+
+```bash
+sudo bash deploy/fix-apache-php82.sh
+```
+
+---
+
 ## Частые ошибки
 
 | Ошибка | Решение |
@@ -338,3 +388,5 @@ $PHP_BIN $(command -v composer) install --no-dev --optimize-autoloader
 | Composer тянет не тот PHP | Запускать `$PHP_BIN $(command -v composer) ...` |
 | Сайт показывает другую версию PHP | Apache использует не php82 — настроить FPM vhost |
 | 500 после деплоя | `tail /var/log/apache2/testtelega-error.log` |
+| `Could not connect to MadelineProto` | `sudo bash deploy/fix-madelineproto-ipc.sh` |
+| `php8.2-fpm.sock` в Apache error log | `sudo bash deploy/fix-apache-php82.sh` |

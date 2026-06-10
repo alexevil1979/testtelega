@@ -14,6 +14,9 @@ return [
     'key' => $_ENV['APP_KEY'] ?? '',
     'timezone' => $_ENV['APP_TIMEZONE'] ?? 'Europe/Moscow',
 
+    // Путь к PHP CLI (для MadelineProto IPC worker на VPS с кастомной сборкой)
+    'php_bin' => $_ENV['PHP_BIN'] ?? '/usr/local/php82/bin/php',
+
     'telegram' => [
         'api_id' => (int) ($_ENV['TELEGRAM_API_ID'] ?? 0),
         'api_hash' => $_ENV['TELEGRAM_API_HASH'] ?? '',

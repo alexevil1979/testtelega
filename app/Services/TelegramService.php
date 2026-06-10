@@ -19,6 +19,24 @@ final class TelegramService
     private static ?string $sessionFile = null;
 
     /**
+     * Подготовка окружения для MadelineProto IPC worker.
+     * IPC запускает отдельный PHP-процесс — нужен тот же бинарник, что и FPM.
+     */
+    private static function prepareMadelineEnvironment(): void
+    {
+        $phpBin = Bootstrap::config('app')['php_bin'] ?? '/usr/local/php82/bin/php';
+        if (!is_executable($phpBin)) {
+            return;
+        }
+
+        $binDir = dirname($phpBin);
+        $path = getenv('PATH') ?: '';
+        if (!str_contains($path, $binDir)) {
+            putenv('PATH=' . $binDir . ($path !== '' ? ':' . $path : ''));
+        }
+    }
+
+    /**
      * Получить или создать экземпляр MadelineProto API.
      */
     public static function getApi(?string $sessionId = null): API
@@ -29,6 +47,8 @@ final class TelegramService
         if (self::$api !== null && self::$sessionFile === $sessionPath) {
             return self::$api;
         }
+
+        self::prepareMadelineEnvironment();
 
         $settings = new Settings();
         $settings->getAppInfo()
@@ -45,7 +65,7 @@ final class TelegramService
         }
         $settings->getLogger()
             ->setExtra($logsPath . '/MadelineProto.log')
-            ->setLevel(\danog\MadelineProto\Logger::LEVEL_FATAL);
+            ->setLevel(\danog\MadelineProto\Logger::LEVEL_ERROR);
 
         // Буферизация: MadelineProto не должен выводить HTML/JS в ответ веб-страницы
         ob_start();
