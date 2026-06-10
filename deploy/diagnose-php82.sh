@@ -57,7 +57,14 @@ grep -rE "SetHandler|ServerName" /etc/apache2/sites-enabled/ 2>/dev/null || echo
 
 echo
 echo "=== Рекомендуемый SetHandler ==="
-LISTEN=$(grep -rhE "^\s*listen\s*=" /usr/local/php82/etc/php-fpm.d/ "$FPM_CONF" 2>/dev/null | grep -v ';' | head -1 | sed 's/.*=\s*//;s/\s*$//')
+# Активный пул — www.conf (не .default)
+LISTEN=""
+if [ -f /usr/local/php82/etc/php-fpm.d/www.conf ]; then
+    LISTEN=$(grep -E "^\s*listen\s*=" /usr/local/php82/etc/php-fpm.d/www.conf | grep -v ';' | head -1 | sed 's/.*=\s*//;s/\s*$//')
+fi
+if [ -z "$LISTEN" ]; then
+    LISTEN=$(grep -rhE "^\s*listen\s*=" /usr/local/php82/etc/php-fpm.d/ "$FPM_CONF" 2>/dev/null | grep -v ';' | grep -v '.default' | head -1 | sed 's/.*=\s*//;s/\s*$//')
+fi
 if [ -n "$LISTEN" ]; then
     if [[ "$LISTEN" == /* ]]; then
         echo "SetHandler \"proxy:unix:${LISTEN}|fcgi://localhost\""
