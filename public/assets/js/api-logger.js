@@ -1,5 +1,5 @@
 /**
- * API Логгер — realtime SSE + история
+ * API Логгер — полный MTProto exchange (parsed + raw)
  */
 
 let logEntries = [];
@@ -7,10 +7,7 @@ let streamPos = 0;
 let eventSource = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Загрузка истории
     loadHistory();
-
-    // Live stream
     startStream();
 
     document.getElementById('liveStream')?.addEventListener('change', (e) => {
@@ -104,15 +101,19 @@ function renderEntries() {
         return;
     }
 
-    container.innerHTML = filtered.slice(-200).map((entry, idx) => `
-        <div class="log-entry ${entry.error ? 'error' : 'success'}" data-idx="${logEntries.indexOf(entry)}">
+    container.innerHTML = filtered.slice(-200).map((entry) => {
+        const idx = logEntries.indexOf(entry);
+        const payload = entry.payload_file ? '<span class="badge bg-info">FILE</span>' : '';
+        return `
+        <div class="log-entry ${entry.error ? 'error' : 'success'}" data-idx="${idx}">
             <span class="log-entry-time">${entry.created_at || ''}</span>
-            <span class="log-entry-method">${entry.method || '—'}</span>
+            <span class="log-entry-method">→ ${entry.method || '—'}</span>
             <span class="badge bg-secondary">${entry.category || ''}</span>
             <span class="log-entry-duration">${entry.duration_ms || 0}ms</span>
-            ${entry.error ? '<span class="badge bg-danger">ERR</span>' : ''}
-        </div>
-    `).join('');
+            ${entry.error ? '<span class="badge bg-danger">ERR</span>' : '<span class="badge bg-success">OK</span>'}
+            ${payload}
+        </div>`;
+    }).join('');
 
     container.scrollTop = container.scrollHeight;
 
@@ -121,23 +122,40 @@ function renderEntries() {
     });
 }
 
-function showDetail(entry) {
+async function showDetail(entry) {
     if (!entry) return;
+
+    if (entry.id && (entry.payload_file || !entry.request?.raw?.hex)) {
+        const full = await App.api(`/api/logger/entry/${entry.id}`);
+        if (full.entry) entry = full.entry;
+    }
 
     const detail = document.getElementById('loggerDetail');
     detail.classList.remove('d-none');
 
     document.getElementById('detailMethod').textContent = entry.method || '—';
+    document.getElementById('detailId').textContent = entry.id || '—';
     document.getElementById('detailDuration').textContent = (entry.duration_ms || 0) + ' ms';
     document.getElementById('detailCategory').textContent = entry.category || '—';
     document.getElementById('detailTime').textContent = entry.created_at || '—';
+    document.getElementById('detailSession').textContent = entry.session_id || '—';
     document.getElementById('detailError').textContent = entry.error || '—';
+    document.getElementById('detailPayload').textContent = entry.payload_file || '—';
 
-    const paramsEl = document.getElementById('detailParams');
-    paramsEl.textContent = JSON.stringify(entry.params || {}, null, 2);
-    hljs.highlightElement(paramsEl);
+    setJson('detailReqParsed', entry.request?.parsed ?? entry.params ?? {});
+    setJson('detailReqRaw', formatRaw(entry.request?.raw));
+    setJson('detailResParsed', entry.response?.parsed ?? entry.response ?? null);
+    setJson('detailResRaw', formatRaw(entry.response?.raw));
+}
 
-    const responseEl = document.getElementById('detailResponse');
-    responseEl.textContent = JSON.stringify(entry.response || null, null, 2);
-    hljs.highlightElement(responseEl);
+function formatRaw(raw) {
+    if (!raw) return { note: 'Нет данных (ошибка до ответа или старая запись)' };
+    return raw;
+}
+
+function setJson(elementId, data) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    el.textContent = JSON.stringify(data, null, 2);
+    if (typeof hljs !== 'undefined') hljs.highlightElement(el);
 }

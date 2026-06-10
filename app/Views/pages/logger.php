@@ -1,7 +1,6 @@
-<!-- API Логгер / Отладка MTProto -->
+<!-- API Логгер / Полный MTProto exchange -->
 
 <div class="logger-layout">
-    <!-- Панель фильтров -->
     <div class="logger-toolbar">
         <div class="d-flex flex-wrap gap-2 align-items-center">
             <select class="form-select form-select-sm" id="filterCategory" style="width:auto;">
@@ -34,9 +33,11 @@
             </div>
             <span class="badge bg-secondary ms-auto" id="logCount">0 записей</span>
         </div>
+        <div class="text-muted small mt-2">
+            Полный обмен: <strong>отправлено</strong> / <strong>принято</strong> в виде TL (parsed) и сырого MTProto (hex + compact JSON).
+        </div>
     </div>
 
-    <!-- Список логов -->
     <div class="logger-entries" id="loggerEntries">
         <div class="text-center text-muted py-5">
             <div class="spinner-border spinner-border-sm"></div>
@@ -44,7 +45,6 @@
         </div>
     </div>
 
-    <!-- Детали выбранного лога -->
     <div class="logger-detail d-none" id="loggerDetail">
         <div class="logger-detail-header">
             <h6 id="detailMethod">—</h6>
@@ -52,23 +52,34 @@
         </div>
         <div class="logger-detail-body">
             <ul class="nav nav-tabs" role="tablist">
-                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabParams">Параметры</a></li>
-                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabResponse">Ответ</a></li>
+                <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#tabReqParsed">→ Отправлено (TL)</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabReqRaw">→ Отправлено (raw)</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabResParsed">← Принято (TL)</a></li>
+                <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabResRaw">← Принято (raw)</a></li>
                 <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#tabMeta">Мета</a></li>
             </ul>
             <div class="tab-content p-3">
-                <div class="tab-pane fade show active" id="tabParams">
-                    <pre class="json-viewer"><code class="language-json" id="detailParams"></code></pre>
+                <div class="tab-pane fade show active" id="tabReqParsed">
+                    <pre class="json-viewer"><code class="language-json" id="detailReqParsed"></code></pre>
                 </div>
-                <div class="tab-pane fade" id="tabResponse">
-                    <pre class="json-viewer"><code class="language-json" id="detailResponse"></code></pre>
+                <div class="tab-pane fade" id="tabReqRaw">
+                    <pre class="json-viewer"><code class="language-json" id="detailReqRaw"></code></pre>
+                </div>
+                <div class="tab-pane fade" id="tabResParsed">
+                    <pre class="json-viewer"><code class="language-json" id="detailResParsed"></code></pre>
+                </div>
+                <div class="tab-pane fade" id="tabResRaw">
+                    <pre class="json-viewer"><code class="language-json" id="detailResRaw"></code></pre>
                 </div>
                 <div class="tab-pane fade" id="tabMeta">
                     <table class="table table-sm">
+                        <tr><td>ID</td><td id="detailId">—</td></tr>
                         <tr><td>Длительность</td><td id="detailDuration">—</td></tr>
                         <tr><td>Категория</td><td id="detailCategory">—</td></tr>
                         <tr><td>Время</td><td id="detailTime">—</td></tr>
+                        <tr><td>Сессия</td><td id="detailSession">—</td></tr>
                         <tr><td>Ошибка</td><td id="detailError">—</td></tr>
+                        <tr><td>Payload file</td><td id="detailPayload">—</td></tr>
                     </table>
                 </div>
             </div>

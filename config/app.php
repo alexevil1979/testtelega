@@ -46,5 +46,7 @@ return [
     'mtproto_log' => [
         'enabled' => filter_var($_ENV['MTProto_LOG_ENABLED'] ?? true, FILTER_VALIDATE_BOOLEAN),
         'retention_days' => (int) ($_ENV['MTProto_LOG_RETENTION_DAYS'] ?? 30),
+        'full_payload' => filter_var($_ENV['MTPROTO_LOG_FULL'] ?? true, FILTER_VALIDATE_BOOLEAN),
+        'max_inline_bytes' => (int) ($_ENV['MTPROTO_LOG_MAX_INLINE_BYTES'] ?? 2_000_000),
     ],
 ];

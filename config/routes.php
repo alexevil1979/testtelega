@@ -63,6 +63,7 @@ return [
     // API — Логгер
     'GET /api/logger/stream' => [LoggerController::class, 'stream'],
     'GET /api/logger/list' => [LoggerController::class, 'list'],
+    'GET /api/logger/entry/{id}' => [LoggerController::class, 'entry'],
     'GET /api/logger/export' => [LoggerController::class, 'export'],
     'POST /api/logger/clear' => [LoggerController::class, 'clear'],
 

@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS mtproto_logs (
     method VARCHAR(255) NOT NULL,
     params JSON,
     response JSON,
+    exchange JSON NULL COMMENT 'request/response parsed+raw, payload_file',
     duration_ms DECIMAL(10, 2) DEFAULT 0,
     error TEXT NULL,
     category VARCHAR(50) DEFAULT 'general',

@@ -10,6 +10,7 @@ namespace App\Controllers;
 
 use App\Bootstrap;
 use App\Database;
+use App\Services\MtProtoLogger;
 use App\View;
 
 final class LoggerController extends BaseController
@@ -118,12 +119,12 @@ final class LoggerController extends BaseController
             $logs = $stmt->fetchAll();
 
             // Декодируем JSON-поля
-            foreach ($logs as &$log) {
-                $log['params'] = json_decode($log['params'] ?? '{}', true);
-                $log['response'] = json_decode($log['response'] ?? 'null', true);
+            $hydrated = [];
+            foreach ($logs as $log) {
+                $hydrated[] = MtProtoLogger::hydrateRow($log);
             }
 
-            View::json(['logs' => $logs, 'count' => count($logs)]);
+            View::json(['logs' => $hydrated, 'count' => count($hydrated)]);
         } catch (\Throwable $e) {
             // Таблица может отсутствовать — не ломаем UI
             View::json(['logs' => [], 'count' => 0, 'warning' => $e->getMessage()], 200);
@@ -163,6 +164,17 @@ final class LoggerController extends BaseController
         }
     }
 
+    public function entry(string $id): void
+    {
+        $entry = MtProtoLogger::loadEntry((int) $id);
+        if (!$entry) {
+            View::json(['error' => 'Not found'], 404);
+            return;
+        }
+
+        View::json(['entry' => $entry]);
+    }
+
     public function clear(): void
     {
         try {
@@ -173,6 +185,11 @@ final class LoggerController extends BaseController
             $logDir = Bootstrap::config('app')['paths']['logs'];
             foreach (glob($logDir . '/mtproto_*.jsonl') as $file) {
                 unlink($file);
+            }
+            foreach (glob($logDir . '/exchange/*', GLOB_ONLYDIR) as $dir) {
+                foreach (glob($dir . '/*.json') as $file) {
+                    unlink($file);
+                }
             }
 
             View::json(['status' => 'ok']);

@@ -84,12 +84,12 @@ final class TelegramService
         } catch (\Throwable $e) {
             $error = $e->getMessage();
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log($method, $params, null, $duration, $error, $category);
+            MtProtoLogger::log($method, $params, null, $duration, $error, $category, $api);
             throw $e;
         }
 
         $duration = (microtime(true) - $start) * 1000;
-        MtProtoLogger::log($method, $params, $response, $duration, null, $category);
+        MtProtoLogger::log($method, $params, $response, $duration, null, $category, $api);
 
         return $response;
     }
@@ -173,11 +173,11 @@ final class TelegramService
         try {
             $result = $api->phoneLogin($phone);
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.phoneLogin', ['phone' => $phone], $result, $duration, null, 'auth');
+            MtProtoLogger::log('auth.phoneLogin', ['phone' => $phone], $result, $duration, null, 'auth', $api);
             return ['status' => 'code_required', 'result' => $result];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.phoneLogin', ['phone' => $phone], null, $duration, $e->getMessage(), 'auth');
+            MtProtoLogger::log('auth.phoneLogin', ['phone' => $phone], null, $duration, $e->getMessage(), 'auth', $api);
             throw $e;
         }
     }
@@ -195,17 +195,17 @@ final class TelegramService
 
             if ($result['_'] === 'account.password') {
                 $duration = (microtime(true) - $start) * 1000;
-                MtProtoLogger::log('auth.completePhoneLogin', [], $result, $duration, null, 'auth');
+                MtProtoLogger::log('auth.completePhoneLogin', [], $result, $duration, null, 'auth', $api);
                 return ['status' => '2fa_required'];
             }
 
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.completePhoneLogin', [], $result, $duration, null, 'auth');
+            MtProtoLogger::log('auth.completePhoneLogin', [], $result, $duration, null, 'auth', $api);
             $_SESSION['telegram_logged_in'] = true;
             return ['status' => 'ok', 'user' => self::getSelf()];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.completePhoneLogin', [], null, $duration, $e->getMessage(), 'auth');
+            MtProtoLogger::log('auth.completePhoneLogin', [], null, $duration, $e->getMessage(), 'auth', $api);
             throw $e;
         }
     }
@@ -221,12 +221,12 @@ final class TelegramService
         try {
             $result = $api->complete2faLogin($password);
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.complete2faLogin', [], $result, $duration, null, 'auth');
+            MtProtoLogger::log('auth.complete2faLogin', [], $result, $duration, null, 'auth', $api);
             $_SESSION['telegram_logged_in'] = true;
             return ['status' => 'ok', 'user' => self::getSelf()];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.complete2faLogin', [], null, $duration, $e->getMessage(), 'auth');
+            MtProtoLogger::log('auth.complete2faLogin', [], null, $duration, $e->getMessage(), 'auth', $api);
             throw $e;
         }
     }
@@ -237,10 +237,11 @@ final class TelegramService
     public static function logout(): void
     {
         try {
-            self::getApi()->logout();
-            MtProtoLogger::log('auth.logout', [], ['ok' => true], 0, null, 'auth');
+            $api = self::getApi();
+            $api->logout();
+            MtProtoLogger::log('auth.logout', [], ['ok' => true], 0, null, 'auth', $api);
         } catch (\Throwable $e) {
-            MtProtoLogger::log('auth.logout', [], null, 0, $e->getMessage(), 'auth');
+            MtProtoLogger::log('auth.logout', [], null, 0, $e->getMessage(), 'auth', self::$api);
         }
 
         self::$api = null;
