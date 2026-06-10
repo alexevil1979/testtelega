@@ -27,7 +27,9 @@ $PHP_BIN -m
 Обязательные модули для MadelineProto + Composer:
 
 ```
-openssl, curl, mbstring, xml, zip, gmp, bcmath, pdo_mysql, pcntl, json, intl
+openssl, curl, mbstring, xml, zip, bcmath, pdo_mysql, pcntl, json, intl
+
+> **gmp** — опционально (ускоряет криптографию). Без него MadelineProto работает через **bcmath**.
 ```
 
 Проверка одной командой:

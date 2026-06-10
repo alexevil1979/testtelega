@@ -16,7 +16,7 @@ echo "=== PHP version & ini ==="
 echo
 echo "=== Обязательные расширения (web + IPC worker) ==="
 MISSING=0
-for ext in mbstring openssl curl gmp pcntl pdo_mysql xml zip bcmath intl; do
+for ext in mbstring openssl curl pcntl pdo_mysql xml zip bcmath intl; do
     if "$PHP_BIN" -m | grep -qi "^${ext}$"; then
         echo "[OK] $ext"
     else
@@ -27,6 +27,14 @@ done
 if [ "$MISSING" -gt 0 ]; then
     echo
     echo ">>> Запустите: sudo bash deploy/fix-php82-extensions.sh"
+fi
+
+echo
+echo "=== Опционально (ускорение, не обязательно) ==="
+if "$PHP_BIN" -m | grep -qi '^gmp$'; then
+    echo "[OK] gmp — быстрая математика"
+else
+    echo "[--] gmp — не установлен, MadelineProto работает через bcmath (медленнее)"
 fi
 
 echo

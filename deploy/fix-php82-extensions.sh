@@ -1,6 +1,6 @@
 #!/bin/bash
-# Включение расширений в /usr/local/php82 (mbstring, gmp и др.)
-# MadelineProto IPC worker использует CLI PHP!
+# Включение расширений в /usr/local/php82
+# gmp НЕ обязателен — MadelineProto использует bcmath как fallback
 # Запуск: sudo bash deploy/fix-php82-extensions.sh
 
 set -e
@@ -8,7 +8,8 @@ set -e
 PHP_BIN="/usr/local/php82/bin/php"
 PHP_INI="/usr/local/php82/etc/php.ini"
 EXT_DIR=$(ls -d /usr/local/php82/lib/php/extensions/no-debug-non-zts-* 2>/dev/null | head -1)
-REQUIRED=(mbstring openssl curl gmp pcntl pdo_mysql xml zip bcmath intl)
+REQUIRED=(mbstring openssl curl pcntl pdo_mysql xml zip bcmath intl)
+OPTIONAL=(gmp)
 
 echo "=== Fix PHP 8.2 extensions ==="
 echo "PHP: $PHP_BIN"
@@ -32,8 +33,8 @@ if ! grep -q "^extension_dir" "$PHP_INI" && [ -n "$EXT_DIR" ]; then
     echo "  set extension_dir"
 fi
 
-# Раскомментировать extension= в php.ini
-for ext in "${REQUIRED[@]}"; do
+# Раскомментировать extension= в php.ini (обязательные + опциональные)
+for ext in "${REQUIRED[@]}" "${OPTIONAL[@]}"; do
     if "$PHP_BIN" -m 2>/dev/null | grep -qi "^${ext}$"; then
         continue
     fi
@@ -46,8 +47,10 @@ for ext in "${REQUIRED[@]}"; do
     elif [ -f "${EXT_DIR}/${ext}.so" ]; then
         echo "extension=${ext}.so" >> "$PHP_INI"
         echo "  added: extension=${ext}.so"
+    elif [[ " ${OPTIONAL[*]} " == *" ${ext} "* ]]; then
+        echo "  [SKIP] ${ext} — опционально, не критично"
     else
-        echo "  [WARN] ${ext}.so не найден — возможно нужна пересборка PHP с --with-gmp"
+        echo "  [WARN] ${ext}.so не найден"
     fi
 done
 
@@ -63,12 +66,13 @@ for ext in "${REQUIRED[@]}"; do
     fi
 done
 
+if "$PHP_BIN" -m | grep -qi '^gmp$'; then
+    echo "[OK] gmp (опционально)"
+else
+    echo "[--] gmp не установлен — OK, используется bcmath"
+fi
+
 if [ "$FAIL" -eq 1 ]; then
-    echo
-    echo "Для gmp может потребоваться:"
-    echo "  sudo apt install libgmp-dev"
-    echo "  затем пересборка PHP с --with-gmp"
-    echo "  или: pecl install gmp (если доступен)"
     exit 1
 fi
 

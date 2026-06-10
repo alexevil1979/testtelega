@@ -19,7 +19,7 @@ echo "[OK] $($PHP_BIN -v | head -1)"
 echo "php.ini: $($PHP_BIN --ini | grep 'Loaded Configuration' | sed 's/.*: //')"
 echo
 
-REQUIRED=(openssl curl mbstring xml zip gmp bcmath pdo_mysql pcntl json intl)
+REQUIRED=(openssl curl mbstring xml zip bcmath pdo_mysql pcntl json intl)
 MISSING=()
 
 for ext in "${REQUIRED[@]}"; do
