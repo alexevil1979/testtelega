@@ -12,6 +12,7 @@ use App\Controllers\AuthController;
 use App\Controllers\ChatController;
 use App\Controllers\ContactController;
 use App\Controllers\DashboardController;
+use App\Controllers\DiagController;
 use App\Controllers\LoggerController;
 use App\Controllers\SettingsController;
 
@@ -31,6 +32,7 @@ return [
     'POST /api/auth/2fa' => [AuthController::class, 'send2fa'],
     'POST /api/auth/logout' => [AuthController::class, 'logout'],
     'GET /api/auth/status' => [AuthController::class, 'status'],
+    'GET /api/diag/madeline' => [DiagController::class, 'madeline'],
     'GET /api/auth/me' => [AuthController::class, 'me'],
 
     // API — Диалоги и чаты

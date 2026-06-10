@@ -30,7 +30,7 @@ final class TelegramService
             return self::$api;
         }
 
-        MadelineEnvironment::prepare();
+        MadelineEnvironment::prepare($sessionPath);
 
         $settings = new Settings();
         $settings->getAppInfo()
@@ -47,7 +47,7 @@ final class TelegramService
         }
         $settings->getLogger()
             ->setExtra($logsPath . '/MadelineProto.log')
-            ->setLevel(\danog\MadelineProto\Logger::LEVEL_ERROR);
+            ->setLevel(\danog\MadelineProto\Logger::LEVEL_NOTICE);
 
         // Буферизация: MadelineProto не должен выводить HTML/JS в ответ веб-страницы
         ob_start();

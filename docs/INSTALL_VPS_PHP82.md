@@ -364,6 +364,15 @@ sudo bash deploy/fix-madelineproto-ipc.sh
 
 ```env
 PHP_BIN=/usr/local/php82/bin/php
+MADELINE_FORCE_FULL=true
+```
+
+`MADELINE_FORCE_FULL=true` — MadelineProto работает **в том же FPM-процессе**, без IPC (как CLI-воркер в botfabric, но без Supervisor).
+
+Диагностика с веба:
+
+```bash
+curl -sk https://testtelega.1tlt.ru/api/diag/madeline | python3 -m json.tool
 ```
 
 Если сессия «зависла» после неудачных попыток:

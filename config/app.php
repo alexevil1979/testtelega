@@ -17,6 +17,9 @@ return [
     // Путь к PHP CLI (для MadelineProto IPC worker на VPS с кастомной сборкой)
     'php_bin' => $_ENV['PHP_BIN'] ?? '/usr/local/php82/bin/php',
 
+    // Веб (FPM): полная инициализация без IPC, пока нет lightState.php (см. MadelineEnvironment)
+    'madeline_force_full' => filter_var($_ENV['MADELINE_FORCE_FULL'] ?? true, FILTER_VALIDATE_BOOLEAN),
+
     'telegram' => [
         'api_id' => (int) ($_ENV['TELEGRAM_API_ID'] ?? 0),
         'api_hash' => $_ENV['TELEGRAM_API_HASH'] ?? '',
