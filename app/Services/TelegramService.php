@@ -65,6 +65,7 @@ final class TelegramService
 
     /**
      * Вызов MTProto-метода с логированием.
+     * MadelineProto 8.x: $api->messages->getDialogs(...) вместо methodCallAsyncRead на API.
      *
      * @param array<string, mixed> $params
      */
@@ -76,7 +77,7 @@ final class TelegramService
         $response = null;
 
         try {
-            $response = $api->methodCallAsyncRead($method, $params);
+            $response = self::invokeMtproto($api, $method, $params);
         } catch (\Throwable $e) {
             $error = $e->getMessage();
             $duration = (microtime(true) - $start) * 1000;
@@ -88,6 +89,24 @@ final class TelegramService
         MtProtoLogger::log($method, $params, $response, $duration, null, $category);
 
         return $response;
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     */
+    private static function invokeMtproto(API $api, string $method, array $params): mixed
+    {
+        $parts = explode('.', $method, 2);
+        if (count($parts) !== 2) {
+            throw new \InvalidArgumentException("Неверный MTProto-метод: {$method}");
+        }
+
+        [$namespace, $methodName] = $parts;
+        if (!isset($api->$namespace)) {
+            throw new \InvalidArgumentException("Неизвестный namespace MadelineProto: {$namespace}");
+        }
+
+        return $api->$namespace->$methodName($params);
     }
 
     /**
