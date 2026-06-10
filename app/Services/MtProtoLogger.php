@@ -58,9 +58,9 @@ final class MtProtoLogger
                 'parsed' => self::sanitize($responseBlock['parsed']),
                 'raw' => $responseBlock['raw'],
             ] : null,
-            // обратная совместимость для старого UI/экспорта
+            // плоские поля для старого UI/экспорта и колонок БД
             'params' => self::sanitize($request['parsed']),
-            'response' => $responseBlock ? self::sanitize($responseBlock['parsed']) : null,
+            'response_legacy' => $responseBlock ? self::sanitize($responseBlock['parsed']) : null,
             'duration_ms' => round($durationMs, 2),
             'error' => $error,
             'category' => $category,
@@ -93,11 +93,11 @@ final class MtProtoLogger
         $fullLog = $config['mtproto_log']['full_payload'] ?? true;
         if (!$fullLog) {
             $entry['request']['parsed'] = self::summarize($entry['request']['parsed']);
-            if ($entry['response']) {
-                $entry['response']['parsed'] = self::summarize($entry['response']['parsed']);
+            if (is_array($entry['response'])) {
+                $entry['response']['parsed'] = self::summarize($entry['response']['parsed'] ?? null);
             }
             $entry['params'] = $entry['request']['parsed'];
-            $entry['response'] = $entry['response']['parsed'] ?? null;
+            $entry['response_legacy'] = $entry['response']['parsed'] ?? null;
 
             return $entry;
         }
@@ -121,11 +121,16 @@ final class MtProtoLogger
         $entry['payload_file'] = $path;
         $entry['payload_size'] = strlen($encoded ?: '');
         $entry['request']['parsed'] = self::summarize($entry['request']['parsed']);
-        $entry['response']['parsed'] = $entry['response'] ? self::summarize($entry['response']['parsed']) : null;
+        if (is_array($entry['response'])) {
+            $entry['response']['parsed'] = self::summarize($entry['response']['parsed'] ?? null);
+            $entry['response_legacy'] = $entry['response']['parsed'];
+            // raw hex остаётся в файле; в stream — флаг
+            unset($entry['request']['raw'], $entry['response']['raw']);
+        } else {
+            $entry['response_legacy'] = null;
+            unset($entry['request']['raw']);
+        }
         $entry['params'] = $entry['request']['parsed'];
-        $entry['response'] = $entry['response']['parsed'] ?? null;
-        // raw hex остаётся в файле; в stream — флаг
-        unset($entry['request']['raw'], $entry['response']['raw']);
 
         return $entry;
     }
@@ -158,7 +163,7 @@ final class MtProtoLogger
             $stmt->execute([
                 'method' => $entry['method'],
                 'params' => json_encode($entry['params'], JSON_UNESCAPED_UNICODE),
-                'response' => json_encode($entry['response'], JSON_UNESCAPED_UNICODE),
+                'response' => json_encode($entry['response_legacy'] ?? null, JSON_UNESCAPED_UNICODE),
                 'duration_ms' => $entry['duration_ms'],
                 'error' => $entry['error'],
                 'category' => $entry['category'],
@@ -227,6 +232,9 @@ final class MtProtoLogger
             $exchange = [];
         }
 
+        $legacyResponse = json_decode($row['response'] ?? 'null', true);
+        $legacyParams = json_decode($row['params'] ?? '{}', true);
+
         $entry = [
             'id' => $row['id'],
             'method' => $row['method'],
@@ -235,10 +243,10 @@ final class MtProtoLogger
             'error' => $row['error'],
             'session_id' => $row['session_id'],
             'created_at' => $row['created_at'],
-            'request' => $exchange['request'] ?? ['parsed' => json_decode($row['params'] ?? '{}', true)],
-            'response' => $exchange['response'] ?? ['parsed' => json_decode($row['response'] ?? 'null', true)],
-            'params' => json_decode($row['params'] ?? '{}', true),
-            'response_legacy' => json_decode($row['response'] ?? 'null', true),
+            'request' => self::normalizeExchangeSide($exchange['request'] ?? null, $legacyParams),
+            'response' => self::normalizeExchangeSide($exchange['response'] ?? null, $legacyResponse),
+            'params' => $legacyParams,
+            'response_legacy' => $legacyResponse,
             'payload_file' => $exchange['payload_file'] ?? null,
             'payload_size' => $exchange['payload_size'] ?? null,
         ];
@@ -256,6 +264,30 @@ final class MtProtoLogger
         }
 
         return $entry;
+    }
+
+    /**
+     * Привести блок request/response к {parsed, raw}.
+     *
+     * @return array{parsed: mixed, raw?: array<string, mixed>}
+     */
+    private static function normalizeExchangeSide(mixed $side, mixed $legacyParsed): array
+    {
+        if (!is_array($side)) {
+            return [
+                'parsed' => $legacyParsed,
+                'raw' => ['encoding' => 'inline_missing', 'note' => 'См. payload_file или новые записи'],
+            ];
+        }
+
+        if (array_key_exists('parsed', $side) || array_key_exists('raw', $side)) {
+            return $side;
+        }
+
+        return [
+            'parsed' => $side,
+            'raw' => ['encoding' => 'inline_missing', 'note' => 'См. payload_file или новые записи'],
+        ];
     }
 
     private static function sanitize(mixed $data): mixed

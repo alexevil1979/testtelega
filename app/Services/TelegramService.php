@@ -84,12 +84,12 @@ final class TelegramService
         } catch (\Throwable $e) {
             $error = $e->getMessage();
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log($method, $params, null, $duration, $error, $category, $api);
+            self::safeLog($method, $params, null, $duration, $error, $category, $api);
             throw $e;
         }
 
         $duration = (microtime(true) - $start) * 1000;
-        MtProtoLogger::log($method, $params, $response, $duration, null, $category, $api);
+        self::safeLog($method, $params, $response, $duration, null, $category, $api);
 
         return $response;
     }
@@ -110,6 +110,27 @@ final class TelegramService
         }
 
         return $api->$namespace->$methodName($params);
+    }
+
+    /**
+     * Логирование не должно ломать MTProto-вызовы.
+     *
+     * @param array<string, mixed> $params
+     */
+    private static function safeLog(
+        string $method,
+        array $params,
+        mixed $response,
+        float $durationMs,
+        ?string $error,
+        string $category,
+        ?API $api = null,
+    ): void {
+        try {
+            MtProtoLogger::log($method, $params, $response, $durationMs, $error, $category, $api);
+        } catch (\Throwable) {
+            // ignore
+        }
     }
 
     /**
@@ -173,11 +194,11 @@ final class TelegramService
         try {
             $result = $api->phoneLogin($phone);
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.phoneLogin', ['phone' => $phone], $result, $duration, null, 'auth', $api);
+            self::safeLog('auth.phoneLogin', ['phone' => $phone], $result, $duration, null, 'auth', $api);
             return ['status' => 'code_required', 'result' => $result];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.phoneLogin', ['phone' => $phone], null, $duration, $e->getMessage(), 'auth', $api);
+            self::safeLog('auth.phoneLogin', ['phone' => $phone], null, $duration, $e->getMessage(), 'auth', $api);
             throw $e;
         }
     }
@@ -195,17 +216,17 @@ final class TelegramService
 
             if ($result['_'] === 'account.password') {
                 $duration = (microtime(true) - $start) * 1000;
-                MtProtoLogger::log('auth.completePhoneLogin', [], $result, $duration, null, 'auth', $api);
+                self::safeLog('auth.completePhoneLogin', [], $result, $duration, null, 'auth', $api);
                 return ['status' => '2fa_required'];
             }
 
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.completePhoneLogin', [], $result, $duration, null, 'auth', $api);
+            self::safeLog('auth.completePhoneLogin', [], $result, $duration, null, 'auth', $api);
             $_SESSION['telegram_logged_in'] = true;
             return ['status' => 'ok', 'user' => self::getSelf()];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.completePhoneLogin', [], null, $duration, $e->getMessage(), 'auth', $api);
+            self::safeLog('auth.completePhoneLogin', [], null, $duration, $e->getMessage(), 'auth', $api);
             throw $e;
         }
     }
@@ -221,12 +242,12 @@ final class TelegramService
         try {
             $result = $api->complete2faLogin($password);
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.complete2faLogin', [], $result, $duration, null, 'auth', $api);
+            self::safeLog('auth.complete2faLogin', [], $result, $duration, null, 'auth', $api);
             $_SESSION['telegram_logged_in'] = true;
             return ['status' => 'ok', 'user' => self::getSelf()];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
-            MtProtoLogger::log('auth.complete2faLogin', [], null, $duration, $e->getMessage(), 'auth', $api);
+            self::safeLog('auth.complete2faLogin', [], null, $duration, $e->getMessage(), 'auth', $api);
             throw $e;
         }
     }
@@ -239,9 +260,9 @@ final class TelegramService
         try {
             $api = self::getApi();
             $api->logout();
-            MtProtoLogger::log('auth.logout', [], ['ok' => true], 0, null, 'auth', $api);
+            self::safeLog('auth.logout', [], ['ok' => true], 0, null, 'auth', $api);
         } catch (\Throwable $e) {
-            MtProtoLogger::log('auth.logout', [], null, 0, $e->getMessage(), 'auth', self::$api);
+            self::safeLog('auth.logout', [], null, 0, $e->getMessage(), 'auth', self::$api);
         }
 
         self::$api = null;

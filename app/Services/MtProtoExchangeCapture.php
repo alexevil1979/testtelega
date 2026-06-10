@@ -54,7 +54,7 @@ final class MtProtoExchangeCapture
         ];
 
         try {
-            $bytes = $api->getTL()->serializeMethod($method, $params);
+            $bytes = $api->getTL()->serializeMethod($method, self::normalizeParamsForSerialize($method, $params));
             $raw['hex'] = bin2hex($bytes);
             $raw['size_bytes'] = strlen($bytes);
         } catch (\Throwable $e) {
@@ -83,25 +83,58 @@ final class MtProtoExchangeCapture
         }
 
         try {
-            $methodInfo = $api->getTL()->getMethods()->findByMethod($method);
-            if (!$methodInfo || empty($methodInfo['type'])) {
-                throw new \RuntimeException('Unknown method return type');
-            }
-
-            $bytes = $api->getTL()->serializeObject(
-                ['type' => $methodInfo['type']],
-                $response,
-                $method
-            );
+            $bytes = self::serializeResponseBytes($api, $method, $response);
             $raw['hex'] = bin2hex($bytes);
             $raw['size_bytes'] = strlen($bytes);
-            $raw['return_type'] = $methodInfo['type'];
         } catch (\Throwable $e) {
             $raw['encoding'] = 'json_fallback';
             $raw['error'] = $e->getMessage();
         }
 
         return $raw;
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    private static function normalizeParamsForSerialize(string $method, array $params): array
+    {
+        if ($method === 'messages.getDialogs' && ($params['hash'] ?? null) === []) {
+            $params['hash'] = 0;
+        }
+
+        return $params;
+    }
+
+    /**
+     * @param array<string, mixed> $response
+     */
+    private static function serializeResponseBytes(API $api, string $method, array $response): string
+    {
+        $methodInfo = $api->getTL()->getMethods()->findByMethod($method);
+        if ($methodInfo && !empty($methodInfo['type'])) {
+            try {
+                return $api->getTL()->serializeObject(
+                    ['type' => $methodInfo['type']],
+                    $response,
+                    $method
+                );
+            } catch (\Throwable) {
+                // fallback ниже
+            }
+        }
+
+        $predicate = $response['_'] ?? null;
+        if (!is_string($predicate) || $predicate === '') {
+            throw new \RuntimeException('Unknown method return type');
+        }
+
+        return $api->getTL()->serializeObject(
+            ['type' => $predicate],
+            $response,
+            $predicate
+        );
     }
 
     private static function compactJson(mixed $data): ?string
