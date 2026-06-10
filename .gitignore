@@ -6,4 +6,3 @@
 !/logs/.gitkeep
 *.madeline
 *.madeline.*
-composer.lock
