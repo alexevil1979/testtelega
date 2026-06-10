@@ -3,6 +3,7 @@
 # Запуск: bash deploy/diagnose-php82.sh
 
 PHP_BIN="${PHP_BIN:-/usr/local/php82/bin/php}"
+FPM_CONF="/usr/local/php82/etc/php-fpm.conf"
 
 echo "=== PHP binary ==="
 ls -la "$PHP_BIN" 2>/dev/null || echo "[FAIL] $PHP_BIN не найден"
@@ -14,32 +15,55 @@ echo "=== PHP version & ini ==="
 
 echo
 echo "=== Обязательные расширения (web + IPC worker) ==="
+MISSING=0
 for ext in mbstring openssl curl gmp pcntl pdo_mysql xml zip bcmath intl; do
     if "$PHP_BIN" -m | grep -qi "^${ext}$"; then
         echo "[OK] $ext"
     else
         echo "[FAIL] $ext — ОТСУТСТВУЕТ"
+        MISSING=$((MISSING + 1))
     fi
 done
+if [ "$MISSING" -gt 0 ]; then
+    echo
+    echo ">>> Запустите: sudo bash deploy/fix-php82-extensions.sh"
+fi
 
 echo
-echo "=== Поиск PHP-FPM сокетов ==="
-for path in \
-    /usr/local/php82/var/run/php-fpm.sock \
-    /usr/local/php82/var/run/www.sock \
-    /usr/local/php82/var/run/php-fpm82.sock \
-    /run/php/php8.2-fpm.sock \
-    /var/run/php-fpm.sock; do
+echo "=== PHP-FPM listen (из конфига) ==="
+if [ -f "$FPM_CONF" ]; then
+    grep -rE "^\s*listen\s*=" /usr/local/php82/etc/php-fpm.d/ "$FPM_CONF" 2>/dev/null | grep -v ';' || true
+else
+    echo "[WARN] $FPM_CONF не найден"
+fi
+
+echo
+echo "=== Поиск PHP-FPM сокетов на диске ==="
+find /usr/local/php82 /tmp /var/run /run -name '*.sock' 2>/dev/null | while read -r path; do
     if [ -S "$path" ]; then
-        echo "[OK] сокет найден: $path"
+        echo "[OK] $path"
         ls -la "$path"
     fi
 done
 
 echo
-echo "=== Активный Apache vhost (SetHandler) ==="
-grep -r "SetHandler\|php-fpm\|fcgi" /etc/apache2/sites-enabled/ 2>/dev/null || true
+echo "=== PHP 8.2 FPM master ==="
+ps aux | grep 'php82/etc/php-fpm' | grep -v grep || echo "[WARN] php82-fpm master не найден"
 
 echo
-echo "=== PHP-FPM процессы ==="
-ps aux | grep -E 'php-fpm|php82' | grep -v grep || echo "php-fpm не запущен"
+echo "=== Активный Apache vhost testtelega ==="
+grep -rE "SetHandler|ServerName|DocumentRoot" /etc/apache2/sites-enabled/ 2>/dev/null | grep -i testtelega -A5 -B2 || \
+grep -rE "SetHandler|ServerName" /etc/apache2/sites-enabled/ 2>/dev/null || echo "[WARN] vhost не найден"
+
+echo
+echo "=== Рекомендуемый SetHandler ==="
+LISTEN=$(grep -rhE "^\s*listen\s*=" /usr/local/php82/etc/php-fpm.d/ "$FPM_CONF" 2>/dev/null | grep -v ';' | head -1 | sed 's/.*=\s*//;s/\s*$//')
+if [ -n "$LISTEN" ]; then
+    if [[ "$LISTEN" == /* ]]; then
+        echo "SetHandler \"proxy:unix:${LISTEN}|fcgi://localhost\""
+    else
+        echo "SetHandler \"proxy:fcgi://${LISTEN}\""
+    fi
+else
+    echo "[WARN] listen не найден в php-fpm.conf"
+fi

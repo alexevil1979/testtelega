@@ -1,6 +1,6 @@
 #!/bin/bash
-# Включение mbstring и других расширений в /usr/local/php82
-# MadelineProto IPC worker использует CLI PHP — mbstring обязателен!
+# Включение расширений в /usr/local/php82 (mbstring, gmp и др.)
+# MadelineProto IPC worker использует CLI PHP!
 # Запуск: sudo bash deploy/fix-php82-extensions.sh
 
 set -e
@@ -8,6 +8,7 @@ set -e
 PHP_BIN="/usr/local/php82/bin/php"
 PHP_INI="/usr/local/php82/etc/php.ini"
 EXT_DIR=$(ls -d /usr/local/php82/lib/php/extensions/no-debug-non-zts-* 2>/dev/null | head -1)
+REQUIRED=(mbstring openssl curl gmp pcntl pdo_mysql xml zip bcmath intl)
 
 echo "=== Fix PHP 8.2 extensions ==="
 echo "PHP: $PHP_BIN"
@@ -19,54 +20,63 @@ if [ ! -f "$PHP_INI" ]; then
     exit 1
 fi
 
-# Проверка mbstring
-if "$PHP_BIN" -m | grep -qi '^mbstring$'; then
-    echo "[OK] mbstring уже включён"
-    exit 0
-fi
-
-echo "[WARN] mbstring отсутствует — включаем..."
-
-# Список .so файлов
+echo
+echo "=== Доступные .so ==="
 if [ -n "$EXT_DIR" ]; then
-    ls "$EXT_DIR"/*.so 2>/dev/null | xargs -n1 basename
+    ls "$EXT_DIR"/*.so 2>/dev/null | xargs -n1 basename || true
 fi
 
-# Раскомментировать extension= в php.ini
-for ext in mbstring openssl curl xml zip gmp bcmath pdo_mysql mysqli intl pcntl; do
-    if grep -q "^;extension=${ext}" "$PHP_INI" 2>/dev/null; then
-        sed -i "s/^;extension=${ext}/extension=${ext}/" "$PHP_INI"
-        echo "  enabled: extension=${ext}"
-    elif grep -q "^;extension=${ext}.so" "$PHP_INI" 2>/dev/null; then
-        sed -i "s/^;extension=${ext}.so/extension=${ext}.so/" "$PHP_INI"
-        echo "  enabled: extension=${ext}.so"
-    fi
-done
-
-# Если extension_dir не задан
+# extension_dir
 if ! grep -q "^extension_dir" "$PHP_INI" && [ -n "$EXT_DIR" ]; then
     echo "extension_dir = \"$EXT_DIR\"" >> "$PHP_INI"
     echo "  set extension_dir"
 fi
 
+# Раскомментировать extension= в php.ini
+for ext in "${REQUIRED[@]}"; do
+    if "$PHP_BIN" -m 2>/dev/null | grep -qi "^${ext}$"; then
+        continue
+    fi
+    if grep -q "^;extension=${ext}\b" "$PHP_INI" 2>/dev/null; then
+        sed -i "s/^;extension=${ext}/extension=${ext}/" "$PHP_INI"
+        echo "  enabled: extension=${ext}"
+    elif grep -q "^;extension=${ext}.so" "$PHP_INI" 2>/dev/null; then
+        sed -i "s/^;extension=${ext}.so/extension=${ext}.so/" "$PHP_INI"
+        echo "  enabled: extension=${ext}.so"
+    elif [ -f "${EXT_DIR}/${ext}.so" ]; then
+        echo "extension=${ext}.so" >> "$PHP_INI"
+        echo "  added: extension=${ext}.so"
+    else
+        echo "  [WARN] ${ext}.so не найден — возможно нужна пересборка PHP с --with-gmp"
+    fi
+done
+
 echo
 echo "=== Проверка после правок ==="
-"$PHP_BIN" -m | grep -E 'mbstring|openssl|curl|gmp|pcntl'
+FAIL=0
+for ext in "${REQUIRED[@]}"; do
+    if "$PHP_BIN" -m | grep -qi "^${ext}$"; then
+        echo "[OK] $ext"
+    else
+        echo "[FAIL] $ext"
+        FAIL=1
+    fi
+done
 
-if "$PHP_BIN" -m | grep -qi '^mbstring$'; then
-    echo "[OK] mbstring включён"
-else
-    echo "[FAIL] mbstring всё ещё отсутствует!"
-    echo "Возможно нужна пересборка PHP с --enable-mbstring"
-    echo "Или вручную добавьте в $PHP_INI:"
-    echo "  extension=mbstring"
+if [ "$FAIL" -eq 1 ]; then
+    echo
+    echo "Для gmp может потребоваться:"
+    echo "  sudo apt install libgmp-dev"
+    echo "  затем пересборка PHP с --with-gmp"
+    echo "  или: pecl install gmp (если доступен)"
     exit 1
 fi
 
-# Перезапуск FPM если есть
+# Перезапуск php82-fpm
 if [ -f /usr/local/php82/sbin/php-fpm ]; then
-    /usr/local/php82/sbin/php-fpm restart 2>/dev/null || killall -USR2 php-fpm 2>/dev/null || true
-    echo "[OK] php-fpm перезапущен"
+    kill -USR2 $(pgrep -f 'php82/etc/php-fpm.conf' | head -1) 2>/dev/null || \
+    /usr/local/php82/sbin/php-fpm -D 2>/dev/null || true
+    echo "[OK] php82-fpm перезапущен"
 fi
 
 systemctl reload apache2 2>/dev/null || true
