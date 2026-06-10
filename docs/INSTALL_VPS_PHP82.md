@@ -337,7 +337,14 @@ $PHP_BIN $(command -v composer) install --no-dev --optimize-autoloader
 Could not connect to MadelineProto, please enable proc_open...
 ```
 
-**Причина:** MadelineProto запускает фоновый IPC worker через `proc_open`. Без него (или с другим PHP в PATH) сессия не стартует за 30 секунд.
+**Причины:**
+1. IPC worker запускается через `proc_open` с PHP из `PATH`.
+2. Если первым в PATH оказывается `/usr/bin/php` (apt) без `mbstring`, в логе будет:
+   `MadelineProto requires the mbstring extension to run. Try running sudo apt-get install php8.2-mbstring`
+3. Нужен **тот же** бинарник, что и FPM: `/usr/local/php82/bin/php`.
+
+В botfabric это решалось явным `command=/usr/local/php82/bin/php ...` в Supervisor (CLI, без FPM).  
+В TestTelega приложение принудительно задаёт PHP для IPC через `MadelineEnvironment` + `PHP_BIN` в `.env`.
 
 **Исправление одной командой:**
 
@@ -389,4 +396,5 @@ sudo bash deploy/fix-apache-php82.sh
 | Сайт показывает другую версию PHP | Apache использует не php82 — настроить FPM vhost |
 | 500 после деплоя | `tail /var/log/apache2/testtelega-error.log` |
 | `Could not connect to MadelineProto` | `sudo bash deploy/fix-madelineproto-ipc.sh` |
+| `requires the mbstring extension` в MadelineProto.log | IPC взял `/usr/bin/php` — `git pull`, `PHP_BIN` в `.env`, `fix-madelineproto-ipc.sh` |
 | `php8.2-fpm.sock` в Apache error log | `sudo bash deploy/fix-apache-php82.sh` |

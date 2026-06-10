@@ -1,0 +1,3 @@
+#!/bin/sh
+# Обёртка для MadelineProto IPC: всегда кастомный PHP 8.2 (не /usr/bin/php из apt)
+exec /usr/local/php82/bin/php "$@"

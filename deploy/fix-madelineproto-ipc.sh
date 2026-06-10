@@ -96,9 +96,10 @@ if [ -f "$FPM_POOL" ]; then
         sed -i 's/^clear_env.*/clear_env = no/' "$FPM_POOL" || \
         echo 'clear_env = no' >> "$FPM_POOL"
 
+    FPM_PATH="/usr/local/php82/bin:${PROJECT}/bin:/usr/bin:/bin"
     grep -q '^env\[PATH\]' "$FPM_POOL" && \
-        sed -i 's|^env\[PATH\].*|env[PATH] = /usr/local/php82/bin:/usr/bin:/bin|' "$FPM_POOL" || \
-        echo 'env[PATH] = /usr/local/php82/bin:/usr/bin:/bin' >> "$FPM_POOL"
+        sed -i "s|^env\[PATH\].*|env[PATH] = ${FPM_PATH}|" "$FPM_POOL" || \
+        echo "env[PATH] = ${FPM_PATH}" >> "$FPM_POOL"
 
     grep -q '^request_terminate_timeout' "$FPM_POOL" && \
         sed -i 's/^request_terminate_timeout.*/request_terminate_timeout = 300/' "$FPM_POOL" || \
@@ -128,6 +129,17 @@ mkdir -p "$PROJECT/sessions" "$PROJECT/logs"
 chown -R www-data:www-data "$PROJECT/sessions" "$PROJECT/logs" 2>/dev/null || \
     chown -R apache:apache "$PROJECT/sessions" "$PROJECT/logs" 2>/dev/null || true
 chmod 775 "$PROJECT/sessions" "$PROJECT/logs"
+
+# --- bin/php wrapper (IPC не должен брать /usr/bin/php из apt) ---
+echo
+echo "=== bin/php wrapper ==="
+mkdir -p "$PROJECT/bin"
+if [ -f "$PROJECT/bin/php" ]; then
+    chmod +x "$PROJECT/bin/php"
+    echo "[OK] $PROJECT/bin/php (chmod +x)"
+else
+    echo "[WARN] $PROJECT/bin/php не найден — выполните git pull"
+fi
 
 # --- Перезапуск FPM ---
 echo
@@ -163,6 +175,19 @@ if [ -n "$WEB_VER" ]; then
 else
     echo "[WARN] Web API не отвечает — проверьте Apache vhost:"
     echo "       sudo bash deploy/fix-apache-php82.sh"
+fi
+
+echo
+echo "=== mbstring (обязателен для IPC worker) ==="
+if "$PHP_BIN" -m | grep -qi '^mbstring$'; then
+    echo "[OK] mbstring в $PHP_BIN"
+else
+    echo "[FAIL] mbstring отсутствует в $PHP_BIN — IPC worker не запустится"
+fi
+if /usr/bin/php -m 2>/dev/null | grep -qi '^mbstring$'; then
+    echo "[INFO] /usr/bin/php имеет mbstring (apt)"
+else
+    echo "[WARN] /usr/bin/php БЕЗ mbstring — IPC не должен использовать этот бинарник"
 fi
 
 echo

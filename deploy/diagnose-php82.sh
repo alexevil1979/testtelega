@@ -84,6 +84,15 @@ echo "[INFO] open_basedir (CLI): $OB"
 if [ -f /usr/local/php82/etc/php-fpm.d/www.conf ]; then
     grep -E 'env\[PATH\]|open_basedir|disable_functions' /usr/local/php82/etc/php-fpm.d/www.conf 2>/dev/null | grep -v ';' || true
 fi
+if /usr/bin/php -v 2>/dev/null | grep -q .; then
+    echo "[INFO] /usr/bin/php: $(/usr/bin/php -r 'echo PHP_VERSION;' 2>/dev/null)"
+    if /usr/bin/php -m 2>/dev/null | grep -qi '^mbstring$'; then
+        echo "[--] /usr/bin/php имеет mbstring"
+    else
+        echo "[WARN] /usr/bin/php БЕЗ mbstring — IPC worker возьмёт его и упадёт!"
+        echo "       Нужен PHP_BIN=/usr/local/php82/bin/php (git pull + fix-madelineproto-ipc.sh)"
+    fi
+fi
 echo ">>> При ошибке IPC: sudo bash deploy/fix-madelineproto-ipc.sh"
 
 echo
