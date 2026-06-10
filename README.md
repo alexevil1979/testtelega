@@ -28,14 +28,34 @@
 
 ## Установка на Ubuntu VPS
 
-### 1. Системные пакеты
+> **На этом сервере PHP:** `/usr/local/php82/bin/php` (кастомная сборка).  
+> Полная инструкция: [docs/INSTALL_VPS_PHP82.md](docs/INSTALL_VPS_PHP82.md)
+
+### Быстрый старт (кастомный PHP 8.2)
+
+```bash
+export PHP_BIN=/usr/local/php82/bin/php
+export PROJECT=/ssd/www/testtelega
+
+# Проверка модулей
+bash $PROJECT/deploy/check-php82.sh
+
+# Composer — только через кастомный PHP!
+cd $PROJECT
+$PHP_BIN $(command -v composer) install --no-dev --optimize-autoloader
+
+# Apache FPM vhost
+sudo cp deploy/apache-vhost-php82-fpm.conf /etc/apache2/sites-available/testtelega.conf
+sudo a2enmod proxy proxy_fcgi rewrite headers
+sudo a2ensite testtelega && sudo systemctl reload apache2
+```
+
+### 1. Системные пакеты (без apt-php, если используется /usr/local/php82)
 
 ```bash
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y apache2 mysql-server php8.2 php8.2-cli php8.2-mysql \
-    php8.2-xml php8.2-mbstring php8.2-zip php8.2-gd php8.2-gmp \
-    php8.2-bcmath php8.2-curl php8.2-intl libapache2-mod-php8.2 \
-    composer git unzip
+sudo apt install -y apache2 mysql-server git unzip curl ca-certificates composer
+# PHP уже установлен в /usr/local/php82 — apt php8.2 не нужен
 ```
 
 ### 2. MySQL
@@ -54,9 +74,9 @@ sudo mysql testtelega < /ssd/www/testtelega/database/schema.sql
 sudo mkdir -p /ssd/www/testtelega
 sudo chown $USER:www-data /ssd/www/testtelega
 
-# Копирование файлов (git clone или scp)
+# Копирование файлов
 cd /ssd/www/testtelega
-composer install --no-dev --optimize-autoloader
+/usr/local/php82/bin/php $(command -v composer) install --no-dev --optimize-autoloader
 
 cp .env.example .env
 nano .env   # Заполнить API_ID, API_HASH, DB_PASSWORD, APP_KEY
@@ -106,8 +126,8 @@ sudo certbot --apache -d testtelega.1tlt.ru
 ### 8. Проверка
 
 ```bash
-# PHP-модули
-php -m | grep -E 'pdo_mysql|gmp|mbstring|xml|zip|bcmath'
+# PHP-модули (кастомный PHP)
+/usr/local/php82/bin/php -m | grep -E 'openssl|curl|pdo_mysql|gmp|mbstring|xml|zip|bcmath|pcntl'
 
 # Права
 ls -la sessions/ logs/
