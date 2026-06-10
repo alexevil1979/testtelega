@@ -8,6 +8,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Services\DialogFormatter;
 use App\Services\TelegramService;
 use App\View;
 
@@ -27,15 +28,25 @@ final class ChatController extends BaseController
         $this->requireAuth();
 
         try {
-            $dialogs = TelegramService::call('messages.getDialogs', [
+            $limit = (int) ($_GET['limit'] ?? 100);
+            $api = TelegramService::getApi();
+            $raw = TelegramService::call('messages.getDialogs', [
                 'offset_date' => 0,
                 'offset_id' => 0,
                 'offset_peer' => ['_' => 'inputPeerEmpty'],
-                'limit' => (int) ($_GET['limit'] ?? 50),
-                'hash' => 0,
+                'limit' => $limit,
+                'hash' => [],
             ], 'messages');
 
-            View::json(['dialogs' => $dialogs]);
+            $items = DialogFormatter::fromGetDialogsResponse($api, $raw, $limit);
+
+            View::json([
+                'dialogs' => [
+                    'items' => $items,
+                    'count' => count($items),
+                    '_type' => $raw['_'] ?? null,
+                ],
+            ]);
         } catch (\Throwable $e) {
             View::json(['error' => $e->getMessage()], 500);
         }
@@ -217,18 +228,6 @@ final class ChatController extends BaseController
      */
     private function resolvePeer(string $id): array
     {
-        // Формат: user_123, chat_456, channel_789
-        if (str_starts_with($id, 'user_')) {
-            return ['_' => 'inputPeerUser', 'user_id' => (int) substr($id, 5), 'access_hash' => (int) ($_GET['access_hash'] ?? 0)];
-        }
-        if (str_starts_with($id, 'chat_')) {
-            return ['_' => 'inputPeerChat', 'chat_id' => (int) substr($id, 5)];
-        }
-        if (str_starts_with($id, 'channel_')) {
-            return ['_' => 'inputPeerChannel', 'channel_id' => (int) substr($id, 8), 'access_hash' => (int) ($_GET['access_hash'] ?? 0)];
-        }
-
-        // Числовой ID — пробуем как user
-        return ['_' => 'inputPeerUser', 'user_id' => (int) $id, 'access_hash' => 0];
+        return DialogFormatter::resolveInputPeer(TelegramService::getApi(), $id);
     }
 }

@@ -92,6 +92,39 @@ final class MtProtoLogger
             }
         }
 
-        return $result;
+        return self::truncateIfHuge($result);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private static function truncateIfHuge(array $data): array
+    {
+        $encoded = json_encode($data, JSON_UNESCAPED_UNICODE);
+        if ($encoded !== false && strlen($encoded) <= 512_000) {
+            return $data;
+        }
+
+        if (isset($data['dialogs']) && is_array($data['dialogs'])) {
+            return [
+                '_' => $data['_'] ?? null,
+                'summary' => 'truncated',
+                'dialogs_count' => count($data['dialogs']),
+                'messages_count' => count($data['messages'] ?? []),
+                'users_count' => count($data['users'] ?? []),
+                'chats_count' => count($data['chats'] ?? []),
+            ];
+        }
+
+        if (isset($data['messages']) && is_array($data['messages'])) {
+            return [
+                '_' => $data['_'] ?? null,
+                'summary' => 'truncated',
+                'messages_count' => count($data['messages']),
+            ];
+        }
+
+        return ['summary' => 'truncated', 'keys' => array_keys($data)];
     }
 }
