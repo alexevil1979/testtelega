@@ -18,7 +18,7 @@ final class ContactController extends BaseController
         View::render('pages/contacts', [
             'title' => 'Контакты',
             'page' => 'contacts',
-            'isLoggedIn' => TelegramService::isLoggedIn(),
+            'isLoggedIn' => TelegramService::getLoginState()['logged_in'],
         ]);
     }
 

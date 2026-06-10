@@ -3,6 +3,27 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Если уже авторизован — загрузить данные пользователя
+    if (!document.getElementById('authSteps')?.classList.contains('d-none')) {
+        // форма авторизации видна
+    } else {
+        loadAuthUser();
+    }
+
+    async function loadAuthUser() {
+        const el = document.getElementById('authUserInfo');
+        if (!el) return;
+        const me = await App.api('/api/auth/me');
+        const u = me.user || {};
+        el.innerHTML = `
+            <div class="account-avatar mx-auto mb-3" style="width:80px;height:80px;font-size:2rem;">
+                <i class="bi bi-person-check-fill text-success"></i>
+            </div>
+            <h4>${(u.first_name || '') + ' ' + (u.last_name || '')}</h4>
+            ${u.username ? '<p class="text-muted">@' + u.username + '</p>' : ''}
+            <p class="text-muted">ID: ${u.id || 0} | ${u.phone || ''}</p>`;
+    }
+
     const stepPhone = document.getElementById('stepPhone');
     const stepCode = document.getElementById('stepCode');
     const step2fa = document.getElementById('step2fa');

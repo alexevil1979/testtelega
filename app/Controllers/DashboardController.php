@@ -15,14 +15,12 @@ final class DashboardController extends BaseController
 {
     public function index(): void
     {
-        $user = TelegramService::getSelf();
-        $isLoggedIn = TelegramService::isLoggedIn();
+        $state = TelegramService::getLoginState();
 
         View::render('pages/dashboard', [
             'title' => 'Дашборд',
             'page' => 'dashboard',
-            'user' => $user,
-            'isLoggedIn' => $isLoggedIn,
+            'isLoggedIn' => $state['logged_in'],
         ]);
     }
 
@@ -31,7 +29,7 @@ final class DashboardController extends BaseController
         View::render('pages/actions', [
             'title' => 'Действия',
             'page' => 'actions',
-            'isLoggedIn' => TelegramService::isLoggedIn(),
+            'isLoggedIn' => TelegramService::getLoginState()['logged_in'],
         ]);
     }
 }

@@ -18,7 +18,7 @@ final class ChatController extends BaseController
         View::render('pages/chats', [
             'title' => 'Диалоги и чаты',
             'page' => 'chats',
-            'isLoggedIn' => TelegramService::isLoggedIn(),
+            'isLoggedIn' => TelegramService::getLoginState()['logged_in'],
         ]);
     }
 

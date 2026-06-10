@@ -47,7 +47,14 @@ final class TelegramService
             ->setExtra($logsPath . '/MadelineProto.log')
             ->setLevel(\danog\MadelineProto\Logger::LEVEL_FATAL);
 
-        self::$api = new API($sessionPath, $settings);
+        // Буферизация: MadelineProto не должен выводить HTML/JS в ответ веб-страницы
+        ob_start();
+        try {
+            self::$api = new API($sessionPath, $settings);
+        } finally {
+            ob_end_clean();
+        }
+
         self::$sessionFile = $sessionPath;
         $_SESSION['telegram_session_id'] = $sessionId;
 
@@ -82,14 +89,36 @@ final class TelegramService
     }
 
     /**
-     * Проверка статуса авторизации.
+     * Состояние авторизации без инициализации MadelineProto (для страниц UI).
+     *
+     * @return array{logged_in: bool, session_id: string|null}
+     */
+    public static function getLoginState(): array
+    {
+        return [
+            'logged_in' => !empty($_SESSION['telegram_logged_in']),
+            'session_id' => $_SESSION['telegram_session_id'] ?? null,
+        ];
+    }
+
+    /**
+     * Проверка статуса авторизации (для API — с реальным подключением).
      */
     public static function isLoggedIn(): bool
     {
+        if (empty($_SESSION['telegram_logged_in'])) {
+            return false;
+        }
+
         try {
             $api = self::getApi();
-            return (bool) $api->getSelf();
+            $loggedIn = (bool) $api->getSelf();
+            if (!$loggedIn) {
+                $_SESSION['telegram_logged_in'] = false;
+            }
+            return $loggedIn;
         } catch (\Throwable) {
+            $_SESSION['telegram_logged_in'] = false;
             return false;
         }
     }
@@ -148,6 +177,7 @@ final class TelegramService
 
             $duration = (microtime(true) - $start) * 1000;
             MtProtoLogger::log('auth.completePhoneLogin', [], $result, $duration, null, 'auth');
+            $_SESSION['telegram_logged_in'] = true;
             return ['status' => 'ok', 'user' => self::getSelf()];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
@@ -168,6 +198,7 @@ final class TelegramService
             $result = $api->complete2faLogin($password);
             $duration = (microtime(true) - $start) * 1000;
             MtProtoLogger::log('auth.complete2faLogin', [], $result, $duration, null, 'auth');
+            $_SESSION['telegram_logged_in'] = true;
             return ['status' => 'ok', 'user' => self::getSelf()];
         } catch (\Throwable $e) {
             $duration = (microtime(true) - $start) * 1000;
@@ -190,7 +221,7 @@ final class TelegramService
 
         self::$api = null;
         self::$sessionFile = null;
-        unset($_SESSION['telegram_session_id']);
+        unset($_SESSION['telegram_session_id'], $_SESSION['telegram_logged_in']);
     }
 
     /**

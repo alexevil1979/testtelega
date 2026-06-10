@@ -7,24 +7,17 @@
                 <i class="bi bi-shield-lock"></i> Авторизация Telegram
             </div>
             <div class="card-body">
-                <?php if ($isLoggedIn && $user): ?>
-                    <!-- Уже авторизован -->
-                    <div class="text-center py-3">
-                        <div class="account-avatar mx-auto mb-3" style="width:80px;height:80px;font-size:2rem;">
-                            <i class="bi bi-person-check-fill text-success"></i>
-                        </div>
-                        <h4><?= htmlspecialchars(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) ?></h4>
-                        <?php if (!empty($user['username'])): ?>
-                            <p class="text-muted">@<?= htmlspecialchars($user['username']) ?></p>
-                        <?php endif; ?>
-                        <p class="text-muted">ID: <?= (int) ($user['id'] ?? 0) ?> | <?= htmlspecialchars($user['phone'] ?? '') ?></p>
-                        <button class="btn btn-danger mt-3" id="btnLogout">
-                            <i class="bi bi-box-arrow-right"></i> Выйти
-                        </button>
+                <div id="authLoggedIn" class="<?= $isLoggedIn ? '' : 'd-none' ?>">
+                    <div class="text-center py-3" id="authUserInfo">
+                        <div class="spinner-border spinner-border-sm"></div>
                     </div>
-                <?php else: ?>
+                    <button class="btn btn-danger mt-3 w-100" id="btnLogout">
+                        <i class="bi bi-box-arrow-right"></i> Выйти
+                    </button>
+                </div>
+
+                <div id="authSteps" class="<?= $isLoggedIn ? 'd-none' : '' ?>">
                     <!-- Форма авторизации (3 шага) -->
-                    <div id="authSteps">
                         <!-- Шаг 1: Телефон -->
                         <div class="auth-step" id="stepPhone">
                             <div class="mb-3">
@@ -75,8 +68,7 @@
                                 <i class="bi bi-unlock"></i> Войти
                             </button>
                         </div>
-                    </div>
-                <?php endif; ?>
+                </div>
             </div>
         </div>
 

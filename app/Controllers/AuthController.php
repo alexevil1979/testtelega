@@ -15,11 +15,12 @@ final class AuthController extends BaseController
 {
     public function page(): void
     {
+        $state = TelegramService::getLoginState();
+
         View::render('pages/auth', [
             'title' => 'Авторизация',
             'page' => 'auth',
-            'isLoggedIn' => TelegramService::isLoggedIn(),
-            'user' => TelegramService::getSelf(),
+            'isLoggedIn' => $state['logged_in'],
         ]);
     }
 

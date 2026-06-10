@@ -125,7 +125,8 @@ final class LoggerController extends BaseController
 
             View::json(['logs' => $logs, 'count' => count($logs)]);
         } catch (\Throwable $e) {
-            View::json(['error' => $e->getMessage(), 'logs' => []], 500);
+            // Таблица может отсутствовать — не ломаем UI
+            View::json(['logs' => [], 'count' => 0, 'warning' => $e->getMessage()], 200);
         }
     }
 

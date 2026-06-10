@@ -25,7 +25,15 @@ const App = {
 
         try {
             const res = await fetch(url, opts);
-            const data = await res.json();
+            const text = await res.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch {
+                console.error('Invalid JSON from', url, text.slice(0, 200));
+                this.toast('Сервер вернул не-JSON ответ', 'danger');
+                return { error: 'Invalid JSON response' };
+            }
 
             if (!res.ok) {
                 this.toast(data.error || `Ошибка ${res.status}`, 'danger');
@@ -62,6 +70,10 @@ const App = {
         `;
         container.insertAdjacentHTML('beforeend', html);
         const el = document.getElementById(id);
+        if (typeof bootstrap === 'undefined') {
+            console.error(message);
+            return;
+        }
         const toast = new bootstrap.Toast(el, { delay: 4000 });
         toast.show();
         el.addEventListener('hidden.bs.toast', () => el.remove());

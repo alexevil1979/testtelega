@@ -9,29 +9,10 @@
                 <span>Аккаунт</span>
             </div>
             <div class="card-body" id="accountCard">
-                <?php if ($isLoggedIn && $user): ?>
-                    <div class="account-info">
-                        <div class="account-avatar">
-                            <i class="bi bi-person-fill"></i>
-                        </div>
-                        <div>
-                            <h5><?= htmlspecialchars(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) ?></h5>
-                            <?php if (!empty($user['username'])): ?>
-                                <p class="text-muted mb-0">@<?= htmlspecialchars($user['username']) ?></p>
-                            <?php endif; ?>
-                            <p class="text-muted mb-0">ID: <?= (int) ($user['id'] ?? 0) ?></p>
-                            <p class="text-muted mb-0">Телефон: <?= htmlspecialchars($user['phone'] ?? '—') ?></p>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <div class="text-center py-4">
-                        <i class="bi bi-shield-x display-4 text-muted"></i>
-                        <p class="mt-3 text-muted">Не авторизован</p>
-                        <a href="/auth" class="btn btn-primary btn-sm">
-                            <i class="bi bi-box-arrow-in-right"></i> Войти
-                        </a>
-                    </div>
-                <?php endif; ?>
+                <div class="text-center py-4" id="accountLoading">
+                    <div class="spinner-border spinner-border-sm text-muted"></div>
+                    <p class="mt-2 mb-0 text-muted">Загрузка...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -167,6 +148,39 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // Карточка аккаунта — через API, без MadelineProto при рендере страницы
+    loadAccountCard();
+
+    async function loadAccountCard() {
+        const card = document.getElementById('accountCard');
+        const status = await App.api('/api/auth/status');
+        if (!status.logged_in) {
+            card.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="bi bi-shield-x display-4 text-muted"></i>
+                    <p class="mt-3 text-muted">Не авторизован</p>
+                    <a href="/auth" class="btn btn-primary btn-sm">
+                        <i class="bi bi-box-arrow-in-right"></i> Войти
+                    </a>
+                </div>`;
+            return;
+        }
+        const me = await App.api('/api/auth/me');
+        const u = me.user || {};
+        card.innerHTML = `
+            <div class="account-info">
+                <div class="account-avatar"><i class="bi bi-person-fill"></i></div>
+                <div>
+                    <h5>${(u.first_name || '') + ' ' + (u.last_name || '')}</h5>
+                    ${u.username ? '<p class="text-muted mb-0">@' + u.username + '</p>' : ''}
+                    <p class="text-muted mb-0">ID: ${u.id || 0}</p>
+                    <p class="text-muted mb-0">Телефон: ${u.phone || '—'}</p>
+                </div>
+            </div>`;
+        document.getElementById('btnGetUpdates')?.removeAttribute('disabled');
+        document.getElementById('btnRpcCall')?.removeAttribute('disabled');
+    }
+
     // Загрузка последних логов
     App.api('/api/logger/list?limit=10').then(data => {
         const tbody = document.querySelector('#recentLogsTable tbody');
@@ -185,10 +199,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${log.error ? '<span class="badge bg-danger">Error</span>' : '<span class="badge bg-success">OK</span>'}</td>
             </tr>
         `).join('');
-    }).catch(() => {});
+    }).catch(() => {
+        const tbody = document.querySelector('#recentLogsTable tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Нет записей</td></tr>';
+    });
 
     // RPC модалка
     document.getElementById('btnRpcCall')?.addEventListener('click', () => {
+        if (typeof bootstrap === 'undefined') { App.toast('Bootstrap не загружен', 'danger'); return; }
         new bootstrap.Modal(document.getElementById('rpcModal')).show();
     });
     document.getElementById('rpcExecute')?.addEventListener('click', async () => {
@@ -202,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.remove('d-none');
         const code = document.getElementById('rpcResultCode');
         code.textContent = JSON.stringify(result.result || result.error, null, 2);
-        hljs.highlightElement(code);
+        if (typeof hljs !== 'undefined') hljs.highlightElement(code);
     });
 
     // Updates
