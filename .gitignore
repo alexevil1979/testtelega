@@ -1,0 +1,9 @@
+/vendor/
+/.env
+/sessions/*
+!/sessions/.gitkeep
+/logs/*
+!/logs/.gitkeep
+*.madeline
+*.madeline.*
+composer.lock
