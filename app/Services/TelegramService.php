@@ -38,8 +38,13 @@ final class TelegramService
         // SOCKS5/HTTP прокси для MTProto (всегда из .env или настроек UI)
         ProxyConfig::applyToSettings($settings);
 
-        // Логирование MadelineProto в наш файл
+        // Лог MadelineProto — в logs/, НЕ в public/ (иначе Permission denied)
+        $logsPath = Bootstrap::config('app')['paths']['logs'];
+        if (!is_dir($logsPath)) {
+            mkdir($logsPath, 0775, true);
+        }
         $settings->getLogger()
+            ->setExtra($logsPath . '/MadelineProto.log')
             ->setLevel(\danog\MadelineProto\Logger::LEVEL_FATAL);
 
         self::$api = new API($sessionPath, $settings);
