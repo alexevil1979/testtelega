@@ -59,9 +59,13 @@ echo "=== PHP 8.2 FPM master ==="
 ps aux | grep 'php82/etc/php-fpm' | grep -v grep || echo "[WARN] php82-fpm master не найден"
 
 echo
-echo "=== Активный Apache vhost testtelega ==="
-grep -rE "SetHandler|ServerName|DocumentRoot" /etc/apache2/sites-enabled/ 2>/dev/null | grep -i testtelega -A5 -B2 || \
-grep -rE "SetHandler|ServerName" /etc/apache2/sites-enabled/ 2>/dev/null || echo "[WARN] vhost не найден"
+echo "=== Apache vhost testtelega ==="
+if [ -e /etc/apache2/sites-enabled/testtelega.conf ]; then
+    echo "[OK] sites-enabled/testtelega.conf"
+    grep -E "ServerName|SetHandler|DocumentRoot" /etc/apache2/sites-available/testtelega.conf 2>/dev/null || true
+else
+    echo "[FAIL] testtelega.conf НЕ включён — запустите: sudo a2ensite testtelega.conf"
+fi
 
 echo
 echo "=== Рекомендуемый SetHandler ==="

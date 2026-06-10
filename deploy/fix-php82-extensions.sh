@@ -33,8 +33,15 @@ if ! grep -q "^extension_dir" "$PHP_INI" && [ -n "$EXT_DIR" ]; then
     echo "  set extension_dir"
 fi
 
-# Раскомментировать extension= в php.ini (обязательные + опциональные)
-for ext in "${REQUIRED[@]}" "${OPTIONAL[@]}"; do
+# Убрать битую строку gmp (если .so нет — иначе warning при каждом запуске PHP)
+if [ ! -f "${EXT_DIR}/gmp.so" ]; then
+    sed -i '/^extension\s*=\s*gmp/d' "$PHP_INI"
+    sed -i '/^;extension\s*=\s*gmp/d' "$PHP_INI"
+    echo "  removed: extension=gmp (модуль отсутствует, используем bcmath)"
+fi
+
+# Раскомментировать extension= в php.ini
+for ext in "${REQUIRED[@]}"; do
     if "$PHP_BIN" -m 2>/dev/null | grep -qi "^${ext}$"; then
         continue
     fi
@@ -47,10 +54,20 @@ for ext in "${REQUIRED[@]}" "${OPTIONAL[@]}"; do
     elif [ -f "${EXT_DIR}/${ext}.so" ]; then
         echo "extension=${ext}.so" >> "$PHP_INI"
         echo "  added: extension=${ext}.so"
-    elif [[ " ${OPTIONAL[*]} " == *" ${ext} "* ]]; then
-        echo "  [SKIP] ${ext} — опционально, не критично"
     else
         echo "  [WARN] ${ext}.so не найден"
+    fi
+done
+
+# Опциональные — только если .so реально существует
+for ext in "${OPTIONAL[@]}"; do
+    if [ -f "${EXT_DIR}/${ext}.so" ] && ! "$PHP_BIN" -m 2>/dev/null | grep -qi "^${ext}$"; then
+        if ! grep -q "^extension=${ext}" "$PHP_INI" 2>/dev/null; then
+            echo "extension=${ext}.so" >> "$PHP_INI"
+            echo "  added optional: extension=${ext}.so"
+        fi
+    else
+        echo "  [SKIP] ${ext} — опционально, не установлен"
     fi
 done
 

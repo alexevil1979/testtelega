@@ -42,9 +42,14 @@ sed -i "s|SetHandler \"proxy:unix:.*\"|SetHandler \"${HANDLER}\"|" "$VHOST"
 a2enmod proxy proxy_fcgi rewrite headers ssl 2>/dev/null || true
 
 # Включить vhost testtelega (если ещё не включён)
-if [ ! -L /etc/apache2/sites-enabled/testtelega.conf ]; then
+if [ ! -e /etc/apache2/sites-enabled/testtelega.conf ]; then
     echo ">>> Включаем sites-enabled/testtelega.conf"
     a2ensite testtelega.conf
+fi
+
+if [ ! -e /etc/apache2/sites-enabled/testtelega.conf ]; then
+    echo "[FAIL] testtelega.conf не включён! Запустите: sudo a2ensite testtelega.conf"
+    exit 1
 fi
 
 echo "=== Итоговый vhost (фрагмент) ==="

@@ -23,4 +23,7 @@ fi
 rm -f "$PROJECT/public/MadelineProto.log"
 
 echo "[OK] sessions/ logs/ — www-data"
+echo
+echo "Очистка сессии MadelineProto (если зависла):"
+echo "  sudo rm -rf $PROJECT/sessions/default.madeline"
 ls -la "$PROJECT/sessions" "$PROJECT/logs"
