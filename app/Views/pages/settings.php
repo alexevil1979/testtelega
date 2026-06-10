@@ -1,6 +1,40 @@
 <!-- Настройки -->
 
 <div class="row g-4">
+    <!-- Прокси MTProto -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-shield-shaded"></i> Прокси (MTProto / SOCKS5)</div>
+            <div class="card-body">
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" id="proxyEnabled"
+                           <?= ($proxy['enabled'] ?? true) ? 'checked' : '' ?>>
+                    <label class="form-check-label" for="proxyEnabled">Использовать прокси всегда</label>
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">proxy_url (MTProto / SOCKS5)</label>
+                        <input type="text" class="form-control font-monospace" id="proxyUrl"
+                               value="<?= htmlspecialchars($proxy['mtproto_url'] ?? 'socks5://127.0.0.1:1084') ?>"
+                               placeholder="socks5://127.0.0.1:1084">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">http_api_proxy_url (HTTP API)</label>
+                        <input type="text" class="form-control font-monospace" id="httpApiProxyUrl"
+                               value="<?= htmlspecialchars($proxy['http_api_url'] ?? 'socks5://127.0.0.1:1084') ?>"
+                               placeholder="socks5://127.0.0.1:1084">
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-primary btn-sm" id="btnSaveProxy">
+                        <i class="bi bi-save"></i> Сохранить прокси
+                    </button>
+                    <small class="text-muted ms-2">После сохранения API переподключится через прокси</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="col-lg-6">
         <div class="card">
             <div class="card-header"><i class="bi bi-hdd-stack"></i> Сессии MadelineProto</div>
@@ -76,6 +110,18 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnSaveProxy')?.addEventListener('click', async () => {
+        await App.api('/api/settings', {
+            method: 'POST',
+            body: {
+                proxy_enabled: document.getElementById('proxyEnabled').checked,
+                proxy_url: document.getElementById('proxyUrl').value.trim(),
+                http_api_proxy_url: document.getElementById('httpApiProxyUrl').value.trim(),
+            }
+        });
+        App.toast('Прокси сохранён', 'success');
+    });
+
     document.querySelectorAll('.btn-delete-session').forEach(btn => {
         btn.addEventListener('click', async () => {
             if (!confirm('Удалить сессию ' + btn.dataset.id + '?')) return;

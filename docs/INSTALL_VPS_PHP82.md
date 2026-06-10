@@ -228,10 +228,51 @@ sudo cp $PROJECT/deploy/apache-vhost.conf /etc/apache2/sites-available/testteleg
 
 ## 8. SSL
 
+Сертификат уже выпущен, но certbot не смог установить в Apache?  
+Ошибка: `Could not reverse map the HTTPS VirtualHost` — установите вручную:
+
+```bash
+cd $PROJECT
+sudo bash deploy/ssl-fix.sh
+```
+
+Или вручную:
+
+```bash
+sudo cp $PROJECT/deploy/apache-vhost-php82-fpm-ssl.conf \
+  /etc/apache2/sites-available/testtelega.conf
+sudo a2enmod ssl proxy proxy_fcgi rewrite headers
+sudo apache2ctl configtest
+sudo systemctl reload apache2
+```
+
+Первый выпуск сертификата (если ещё нет):
+
 ```bash
 sudo apt install -y certbot python3-certbot-apache
-sudo certbot --apache -d testtelega.1tlt.ru
+sudo certbot certonly --apache -d testtelega.1tlt.ru
+sudo bash $PROJECT/deploy/ssl-fix.sh
 ```
+
+---
+
+## 8.1. Прокси SOCKS5 (обязательно для Telegram)
+
+В `.env`:
+
+```env
+PROXY_ENABLED=true
+PROXY_URL=socks5://127.0.0.1:1084
+HTTP_API_PROXY_URL=socks5://127.0.0.1:1084
+```
+
+Убедитесь, что SOCKS5-прокси запущен на сервере:
+
+```bash
+ss -tlnp | grep 1084
+```
+
+Настройки можно менять в UI: **Настройки → Прокси**.
 
 ---
 

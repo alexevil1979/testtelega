@@ -35,6 +35,9 @@ final class TelegramService
             ->setApiId(Bootstrap::config('app')['telegram']['api_id'])
             ->setApiHash(Bootstrap::config('app')['telegram']['api_hash']);
 
+        // SOCKS5/HTTP прокси для MTProto (всегда из .env или настроек UI)
+        ProxyConfig::applyToSettings($settings);
+
         // Логирование MadelineProto в наш файл
         $settings->getLogger()
             ->setLevel(\danog\MadelineProto\Logger::LEVEL_FATAL);
@@ -205,6 +208,15 @@ final class TelegramService
         }
 
         return $sessions;
+    }
+
+    /**
+     * Сбросить кэш API (после смены прокси и т.д.).
+     */
+    public static function resetApi(): void
+    {
+        self::$api = null;
+        self::$sessionFile = null;
     }
 
     /**

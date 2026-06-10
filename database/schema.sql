@@ -56,5 +56,8 @@ CREATE TABLE IF NOT EXISTS app_users (
 INSERT INTO app_settings (`key`, `value`) VALUES
     ('theme', '"dark"'),
     ('log_retention_days', '30'),
-    ('auto_refresh_interval', '30')
+    ('auto_refresh_interval', '30'),
+    ('proxy_enabled', 'true'),
+    ('proxy_url', '"socks5://127.0.0.1:1084"'),
+    ('http_api_proxy_url', '"socks5://127.0.0.1:1084"')
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);

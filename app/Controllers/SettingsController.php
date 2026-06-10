@@ -10,6 +10,7 @@ namespace App\Controllers;
 
 use App\Bootstrap;
 use App\Database;
+use App\Services\ProxyConfig;
 use App\Services\TelegramService;
 use App\View;
 
@@ -21,6 +22,7 @@ final class SettingsController extends BaseController
             'title' => 'Настройки',
             'page' => 'settings',
             'sessions' => TelegramService::listSessions(),
+            'proxy' => ProxyConfig::get(),
         ]);
     }
 
@@ -54,6 +56,11 @@ final class SettingsController extends BaseController
             foreach ($data as $key => $value) {
                 $json = json_encode($value, JSON_UNESCAPED_UNICODE);
                 $stmt->execute(['key' => $key, 'value' => $json, 'value2' => $json]);
+            }
+
+            // Сброс API при смене прокси
+            if (isset($data['proxy_url']) || isset($data['http_api_proxy_url']) || isset($data['proxy_enabled'])) {
+                TelegramService::resetApi();
             }
 
             View::json(['status' => 'ok']);

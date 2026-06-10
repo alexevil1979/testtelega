@@ -19,6 +19,12 @@ return [
         'api_hash' => $_ENV['TELEGRAM_API_HASH'] ?? '',
     ],
 
+    'proxy' => [
+        'enabled' => filter_var($_ENV['PROXY_ENABLED'] ?? true, FILTER_VALIDATE_BOOLEAN),
+        'mtproto_url' => $_ENV['PROXY_URL'] ?? 'socks5://127.0.0.1:1084',
+        'http_api_url' => $_ENV['HTTP_API_PROXY_URL'] ?? 'socks5://127.0.0.1:1084',
+    ],
+
     'paths' => [
         'root' => dirname(__DIR__),
         'sessions' => dirname(__DIR__) . '/' . ($_ENV['SESSIONS_PATH'] ?? 'sessions'),
