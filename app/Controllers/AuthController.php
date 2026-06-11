@@ -43,7 +43,15 @@ final class AuthController extends BaseController
             $result = TelegramService::phoneLogin($phone);
             View::json($result);
         } catch (\Throwable $e) {
-            View::json(['error' => $e->getMessage()], 500);
+            $msg = $e->getMessage();
+            if (stripos($msg, 'already logged') !== false || stripos($msg, 'уже залогинен') !== false) {
+                View::json([
+                    'error' => $msg,
+                    'code' => 'already_logged_in',
+                ], 409);
+                return;
+            }
+            View::json(['error' => $msg], 500);
         }
     }
 
@@ -89,11 +97,28 @@ final class AuthController extends BaseController
         View::json(['status' => 'ok']);
     }
 
+    public function resetSession(): void
+    {
+        $data = $this->getJsonBody();
+        $sessionId = $data['session_id'] ?? ($_SESSION['telegram_session_id'] ?? 'default');
+
+        $deleted = TelegramService::forceResetSession($sessionId);
+        View::json([
+            'status' => $deleted ? 'ok' : 'not_found',
+            'session_id' => preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $sessionId) ?: 'default',
+        ]);
+    }
+
     public function status(): void
     {
+        $sessionId = $_SESSION['telegram_session_id'] ?? 'default';
+        $madelineLoggedIn = TelegramService::isMadelineLoggedIn($sessionId);
+
         View::json([
             'logged_in' => TelegramService::isLoggedIn(),
-            'session_id' => $_SESSION['telegram_session_id'] ?? null,
+            'session_id' => $sessionId,
+            'madeline_logged_in' => $madelineLoggedIn,
+            'session_exists' => TelegramService::sessionExists($sessionId),
         ]);
     }
 

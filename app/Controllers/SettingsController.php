@@ -104,6 +104,15 @@ final class SettingsController extends BaseController
         }
 
         $deleted = TelegramService::deleteSession($sessionId);
+
+        if ($deleted) {
+            $cleanId = preg_replace('/[^a-zA-Z0-9_-]/', '', $sessionId) ?: 'default';
+            if (($SESSION = &$_SESSION) && ($SESSION['telegram_session_id'] ?? 'default') === $cleanId) {
+                unset($SESSION['telegram_session_id'], $SESSION['telegram_logged_in']);
+            }
+            TelegramService::resetApi();
+        }
+
         View::json(['status' => $deleted ? 'ok' : 'not_found']);
     }
 }

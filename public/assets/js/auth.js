@@ -5,9 +5,52 @@
 document.addEventListener('DOMContentLoaded', () => {
     // Если уже авторизован — загрузить данные пользователя
     if (!document.getElementById('authSteps')?.classList.contains('d-none')) {
-        // форма авторизации видна
+        checkOrphanSession();
     } else {
         loadAuthUser();
+    }
+
+    async function checkOrphanSession() {
+        const status = await App.api('/api/auth/status');
+        if (!status.madeline_logged_in || status.logged_in) {
+            return;
+        }
+
+        const alert = document.getElementById('orphanSessionAlert');
+        const sessionIdEl = document.getElementById('orphanSessionId');
+        const sessionInput = document.getElementById('sessionIdInput');
+        const sessionId = status.session_id || 'default';
+
+        if (alert) {
+            alert.classList.remove('d-none');
+        }
+        if (sessionIdEl) {
+            sessionIdEl.textContent = sessionId;
+        }
+        if (sessionInput && !sessionInput.value) {
+            sessionInput.value = sessionId;
+        }
+    }
+
+    async function resetSession(sessionId) {
+        const id = sessionId || document.getElementById('sessionIdInput')?.value.trim() || 'default';
+        if (!confirm('Удалить сессию «' + id + '» и выйти из аккаунта Telegram на этом сервере?')) {
+            return false;
+        }
+
+        const data = await App.api('/api/auth/reset-session', {
+            method: 'POST',
+            body: { session_id: id },
+        });
+
+        if (data.status === 'ok') {
+            App.toast('Сессия сброшена. Можно войти под другим номером.', 'success');
+            document.getElementById('orphanSessionAlert')?.classList.add('d-none');
+            return true;
+        }
+
+        App.toast(data.error || 'Сессия не найдена', 'warning');
+        return false;
     }
 
     async function loadAuthUser() {
@@ -49,6 +92,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         btn.disabled = false;
         btn.innerHTML = '<i class="bi bi-send"></i> Отправить код';
+
+        if (data.code === 'already_logged_in') {
+            const reset = confirm(
+                'Этот инстанс MadelineProto уже залогинен.\n\nСбросить сессию и войти под другим номером?'
+            );
+            if (reset) {
+                const ok = await resetSession(sessionId || 'default');
+                if (ok) {
+                    App.toast('Повторите отправку кода', 'info');
+                }
+            }
+            return;
+        }
 
         if (data.status === 'code_required' || !data.error) {
             stepPhone.classList.add('d-none');
@@ -118,5 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
         await App.api('/api/auth/logout', { method: 'POST' });
         App.toast('Вы вышли из аккаунта', 'success');
         setTimeout(() => location.reload(), 1000);
+    });
+
+    document.getElementById('btnResetSession')?.addEventListener('click', async () => {
+        const ok = await resetSession(document.getElementById('sessionIdInput')?.value.trim());
+        if (ok) {
+            setTimeout(() => location.reload(), 800);
+        }
     });
 });

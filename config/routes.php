@@ -31,6 +31,7 @@ return [
     'POST /api/auth/code' => [AuthController::class, 'sendCode'],
     'POST /api/auth/2fa' => [AuthController::class, 'send2fa'],
     'POST /api/auth/logout' => [AuthController::class, 'logout'],
+    'POST /api/auth/reset-session' => [AuthController::class, 'resetSession'],
     'GET /api/auth/status' => [AuthController::class, 'status'],
     'GET /api/diag/madeline' => [DiagController::class, 'madeline'],
     'GET /api/auth/me' => [AuthController::class, 'me'],

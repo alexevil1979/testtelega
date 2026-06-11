@@ -253,21 +253,75 @@ final class TelegramService
     }
 
     /**
-     * Выход из аккаунта.
+     * Выход из аккаунта (Telegram + локальные файлы сессии).
      */
     public static function logout(): void
     {
+        $sessionId = self::sanitizeSessionId($_SESSION['telegram_session_id'] ?? 'default');
+
         try {
-            $api = self::getApi();
+            $api = self::getApi($sessionId);
             $api->logout();
             self::safeLog('auth.logout', [], ['ok' => true], 0, null, 'auth', $api);
         } catch (\Throwable $e) {
             self::safeLog('auth.logout', [], null, 0, $e->getMessage(), 'auth', self::$api);
         }
 
-        self::$api = null;
-        self::$sessionFile = null;
+        self::resetApi();
+        self::destroySessionFiles($sessionId);
         unset($_SESSION['telegram_session_id'], $_SESSION['telegram_logged_in']);
+    }
+
+    /**
+     * Принудительный сброс сессии без вызова Telegram API (смена аккаунта).
+     */
+    public static function forceResetSession(?string $sessionId = null): bool
+    {
+        $sessionId = self::sanitizeSessionId($sessionId ?? ($_SESSION['telegram_session_id'] ?? 'default'));
+
+        if (self::$sessionFile === self::sessionBasePath($sessionId)) {
+            self::resetApi();
+        }
+
+        $deleted = self::destroySessionFiles($sessionId);
+
+        if (self::sanitizeSessionId($_SESSION['telegram_session_id'] ?? 'default') === $sessionId) {
+            unset($_SESSION['telegram_session_id'], $_SESSION['telegram_logged_in']);
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * Проверка: на диске есть сессия MadelineProto.
+     */
+    public static function sessionExists(?string $sessionId = null): bool
+    {
+        $base = self::sessionBasePath(self::sanitizeSessionId($sessionId ?? ($_SESSION['telegram_session_id'] ?? 'default')));
+        if (file_exists($base)) {
+            return true;
+        }
+
+        $dir = Bootstrap::config('app')['paths']['sessions'];
+        $id = self::sanitizeSessionId($sessionId ?? 'default');
+
+        return !empty(glob($dir . '/' . $id . '.madeline*'));
+    }
+
+    /**
+     * MadelineProto на диске уже авторизован (независимо от PHP-сессии).
+     */
+    public static function isMadelineLoggedIn(?string $sessionId = null): bool
+    {
+        if (!self::sessionExists($sessionId)) {
+            return false;
+        }
+
+        try {
+            return (bool) self::getApi($sessionId)->getSelf();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**
@@ -279,17 +333,45 @@ final class TelegramService
     {
         $dir = Bootstrap::config('app')['paths']['sessions'];
         $sessions = [];
+        $seen = [];
 
-        foreach (glob($dir . '/*.madeline') as $file) {
-            $sessions[] = [
-                'id' => basename($file, '.madeline'),
-                'size' => filesize($file),
-                'modified' => date('Y-m-d H:i:s', filemtime($file)),
-                'active' => ($_SESSION['telegram_session_id'] ?? '') === basename($file, '.madeline'),
-            ];
+        foreach (glob($dir . '/*.madeline', GLOB_ONLYDIR) ?: [] as $path) {
+            $id = basename($path, '.madeline');
+            $seen[$id] = true;
+            $sessions[] = self::buildSessionInfo($id, $path);
         }
 
+        // Старый формат: один файл *.madeline
+        foreach (glob($dir . '/*.madeline') ?: [] as $path) {
+            if (is_dir($path)) {
+                continue;
+            }
+            $id = basename($path, '.madeline');
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $sessions[] = self::buildSessionInfo($id, $path);
+        }
+
+        usort($sessions, static fn(array $a, array $b): int => strcmp($a['id'], $b['id']));
+
         return $sessions;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function buildSessionInfo(string $id, string $path): array
+    {
+        $activeId = self::sanitizeSessionId($_SESSION['telegram_session_id'] ?? 'default');
+
+        return [
+            'id' => $id,
+            'size' => self::pathSize($path),
+            'modified' => date('Y-m-d H:i:s', filemtime($path)),
+            'active' => $activeId === $id,
+            'logged_in' => is_file($path . '/lightState.php') || is_dir($path . '/safe.php'),
+        ];
     }
 
     /**
@@ -302,22 +384,109 @@ final class TelegramService
     }
 
     /**
-     * Удалить сессию.
+     * Удалить сессию с диска.
      */
     public static function deleteSession(string $sessionId): bool
     {
-        $path = Bootstrap::config('app')['paths']['sessions'] . '/' . preg_replace('/[^a-zA-Z0-9_-]/', '', $sessionId) . '.madeline';
-        if (!file_exists($path)) {
-            return false;
+        $sessionId = self::sanitizeSessionId($sessionId);
+
+        if (self::$sessionFile === self::sessionBasePath($sessionId)) {
+            self::resetApi();
         }
 
-        // Удаляем связанные файлы MadelineProto
-        foreach (glob($path . '*') as $file) {
-            if (is_file($file)) {
-                unlink($file);
+        return self::destroySessionFiles($sessionId);
+    }
+
+    private static function sanitizeSessionId(string $sessionId): string
+    {
+        $id = preg_replace('/[^a-zA-Z0-9_-]/', '', $sessionId);
+
+        return $id !== '' ? $id : 'default';
+    }
+
+    private static function sessionBasePath(string $sessionId): string
+    {
+        return Bootstrap::config('app')['paths']['sessions'] . '/' . self::sanitizeSessionId($sessionId) . '.madeline';
+    }
+
+    /**
+     * MadelineProto 8 хранит сессию как директорию + lock/ipc файлы.
+     */
+    private static function destroySessionFiles(string $sessionId): bool
+    {
+        $dir = Bootstrap::config('app')['paths']['sessions'];
+        $id = self::sanitizeSessionId($sessionId);
+        $base = self::sessionBasePath($id);
+        $found = false;
+
+        if (file_exists($base)) {
+            self::removePath($base);
+            $found = true;
+        }
+
+        foreach (glob($dir . '/' . $id . '.madeline*') ?: [] as $extra) {
+            if (file_exists($extra)) {
+                self::removePath($extra);
+                $found = true;
             }
         }
 
-        return true;
+        foreach (glob($dir . '/*') ?: [] as $item) {
+            $name = basename($item);
+            if (preg_match('/\.(ipc|lock)$/', $name) && str_contains($name, $id)) {
+                self::removePath($item);
+                $found = true;
+            }
+        }
+
+        return $found;
+    }
+
+    private static function removePath(string $path): void
+    {
+        if (!file_exists($path)) {
+            return;
+        }
+
+        if (is_dir($path)) {
+            $items = scandir($path);
+            if ($items !== false) {
+                foreach ($items as $item) {
+                    if ($item === '.' || $item === '..') {
+                        continue;
+                    }
+                    self::removePath($path . '/' . $item);
+                }
+            }
+            @rmdir($path);
+            return;
+        }
+
+        @unlink($path);
+    }
+
+    private static function pathSize(string $path): int
+    {
+        if (is_file($path)) {
+            return (int) (filesize($path) ?: 0);
+        }
+
+        if (!is_dir($path)) {
+            return 0;
+        }
+
+        $size = 0;
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS)
+        );
+
+        foreach ($iterator as $file) {
+            /** @var \SplFileInfo $file */
+            if ($file->isFile()) {
+                $size += (int) $file->getSize();
+            }
+        }
+
+        return $size;
     }
 }

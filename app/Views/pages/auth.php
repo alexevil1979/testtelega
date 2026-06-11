@@ -17,6 +17,20 @@
                 </div>
 
                 <div id="authSteps" class="<?= $isLoggedIn ? 'd-none' : '' ?>">
+                    <div id="orphanSessionAlert" class="alert alert-warning d-none mb-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        На сервере уже есть активная сессия MadelineProto
+                        (<code id="orphanSessionId">default</code>), но веб-сессия сброшена.
+                        <div class="mt-2 d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-warning" id="btnResetSession">
+                                <i class="bi bi-trash"></i> Сбросить сессию
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success d-none" id="btnResumeSession">
+                                <i class="bi bi-box-arrow-in-right"></i> Продолжить с этим аккаунтом
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Форма авторизации (3 шага) -->
                         <!-- Шаг 1: Телефон -->
                         <div class="auth-step" id="stepPhone">

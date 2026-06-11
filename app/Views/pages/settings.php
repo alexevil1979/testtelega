@@ -124,13 +124,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.btn-delete-session').forEach(btn => {
         btn.addEventListener('click', async () => {
-            if (!confirm('Удалить сессию ' + btn.dataset.id + '?')) return;
-            await App.api('/api/settings/sessions/delete', {
+            if (!confirm('Удалить сессию «' + btn.dataset.id + '»?\n\nАккаунт Telegram на сервере будет отключён.')) return;
+            const data = await App.api('/api/settings/sessions/delete', {
                 method: 'POST',
                 body: { session_id: btn.dataset.id }
             });
-            App.toast('Сессия удалена', 'success');
-            location.reload();
+            if (data.status === 'ok') {
+                App.toast('Сессия удалена', 'success');
+                location.reload();
+            } else {
+                App.toast(data.error || 'Не удалось удалить сессию', 'danger');
+            }
         });
     });
 
