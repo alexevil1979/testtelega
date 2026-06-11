@@ -112,10 +112,18 @@ final class AuthController extends BaseController
     public function status(): void
     {
         $sessionId = $_SESSION['telegram_session_id'] ?? 'default';
+        $phpLoggedIn = !empty($_SESSION['telegram_logged_in']);
+
+        // Не держать lock сессии во время медленного MadelineProto
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         $madelineLoggedIn = TelegramService::isMadelineLoggedIn($sessionId);
+        $loggedIn = $phpLoggedIn && $madelineLoggedIn;
 
         View::json([
-            'logged_in' => TelegramService::isLoggedIn(),
+            'logged_in' => $loggedIn,
             'session_id' => $sessionId,
             'madeline_logged_in' => $madelineLoggedIn,
             'session_exists' => TelegramService::sessionExists($sessionId),

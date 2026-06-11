@@ -70,8 +70,8 @@ final class MtProtoLogger
 
         $entry = self::attachPayloadFile($entry, $config);
 
+        $entry = self::writeDatabase($entry);
         self::writeJsonl($entry, $config);
-        self::writeDatabase($entry);
     }
 
     private static function safeApi(): ?API
@@ -151,8 +151,9 @@ final class MtProtoLogger
 
     /**
      * @param array<string, mixed> $entry
+     * @return array<string, mixed>
      */
-    private static function writeDatabase(array $entry): void
+    private static function writeDatabase(array $entry): array
     {
         try {
             $pdo = Database::connection();
@@ -176,6 +177,7 @@ final class MtProtoLogger
                     'payload_size' => $entry['payload_size'] ?? null,
                 ], JSON_UNESCAPED_UNICODE),
             ]);
+            $entry['id'] = (int) $pdo->lastInsertId();
         } catch (\Throwable) {
             // fallback без колонки exchange
             try {
@@ -194,9 +196,12 @@ final class MtProtoLogger
                     'session_id' => $entry['session_id'],
                     'created_at' => $entry['created_at'],
                 ]);
+                $entry['id'] = (int) $pdo->lastInsertId();
             } catch (\Throwable) {
             }
         }
+
+        return $entry;
     }
 
     /**

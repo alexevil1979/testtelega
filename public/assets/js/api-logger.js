@@ -125,14 +125,20 @@ function renderEntries() {
 async function showDetail(entry) {
     if (!entry) return;
 
+    renderDetailPanel(entry);
+
     const needsFull = entry.payload_file
         || !entry.request?.raw?.hex
         || (entry.response && !entry.response?.raw?.hex && !entry.response?.raw?.error);
     if (entry.id && needsFull) {
         const full = await App.api(`/api/logger/entry/${entry.id}`);
-        if (full.entry) entry = full.entry;
+        if (full.entry) {
+            renderDetailPanel(full.entry);
+        }
     }
+}
 
+function renderDetailPanel(entry) {
     const detail = document.getElementById('loggerDetail');
     detail.classList.remove('d-none');
 

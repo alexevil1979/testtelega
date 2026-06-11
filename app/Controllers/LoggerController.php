@@ -25,9 +25,14 @@ final class LoggerController extends BaseController
 
     /**
      * Server-Sent Events для realtime-логов.
+     * session_write_close() — иначе SSE держит lock PHP-сессии ~30 с и блокирует все API (в т.ч. entry).
      */
     public function stream(): void
     {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         header('Content-Type: text/event-stream');
         header('Cache-Control: no-cache');
         header('Connection: keep-alive');
@@ -49,7 +54,7 @@ final class LoggerController extends BaseController
 
         fseek($fp, $lastPos);
 
-        $timeout = 30;
+        $timeout = 15;
         $start = time();
 
         while (time() - $start < $timeout) {
@@ -68,7 +73,7 @@ final class LoggerController extends BaseController
                 }
             } else {
                 // Нет новых данных — ждём
-                usleep(500000);
+                usleep(200_000);
                 clearstatcache(true, $logFile);
 
                 // Проверяем, не пересоздан ли файл
@@ -86,6 +91,10 @@ final class LoggerController extends BaseController
 
     public function list(): void
     {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         $limit = min((int) ($_GET['limit'] ?? 100), 500);
         $offset = (int) ($_GET['offset'] ?? 0);
         $category = $_GET['category'] ?? '';
@@ -166,6 +175,10 @@ final class LoggerController extends BaseController
 
     public function entry(string $id): void
     {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
+
         $entry = MtProtoLogger::loadEntry((int) $id);
         if (!$entry) {
             View::json(['error' => 'Not found'], 404);
